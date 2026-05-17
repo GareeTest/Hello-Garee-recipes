@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hello Garee's Recipe Planner</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👨‍🍳</text></svg>">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --green: #2d6a4f; --green-dark: #1b4332; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #222; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+#app-content { flex: 1; overflow-y: auto; }
+#sticky-top { position: sticky; top: 0; z-index: 10; background: #f5f5f0; }
+
+/* ── Header & Nav ── */
+header { background: var(--green); color: white; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+header h1 { font-size: 1.3rem; font-weight: 700; }
+header p { font-size: 0.8rem; opacity: 0.75; margin-top: 0.15rem; }
+nav { display: flex; background: var(--green-dark); gap: 0.35rem; padding: 0.6rem 0.6rem 0; }
+nav button { flex: 1; background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.7); padding: 0.6rem 0.5rem 0.5rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.18s; border-radius: 8px 8px 0 0; display: flex; flex-direction: column; align-items: center; gap: 0.15rem; line-height: 1.2; }
+nav button small { font-size: 0.62rem; font-weight: 400; opacity: 0.65; display: block; }
+nav button.active { background: white; color: var(--green-dark); }
+nav button.active small { opacity: 0.55; }
+nav button:hover:not(.active) { background: rgba(255,255,255,0.16); color: white; }
+
+/* ── Pages ── */
+.page { display: none; padding: 1.2rem 1.5rem; max-width: 1920px; margin: 0 auto; }
+.page.active { display: block; }
+
+/* ── Filter Bar ── */
+.filter-bar { background: white; border-radius: 10px; margin-bottom: 0.6rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); overflow: hidden; }
+#list-sticky { padding: 0.5rem 1.5rem 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); max-width: 1920px; margin: 0 auto; }
+.filter-bar-header { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 1rem; cursor: pointer; user-select: none; }
+.filter-bar-header span { font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; }
+.filter-active-count { background: var(--green); color: white; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 20px; }
+.filter-toggle-icon { font-size: 0.75rem; color: #999; transition: transform 0.2s; }
+.filter-toggle-icon.open { transform: rotate(180deg); }
+.filter-body { padding: 0 1rem 1rem; border-top: 1px solid #f0f0f0; }
+.filter-row { margin-top: 0.8rem; display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+.filter-row label { font-size: 0.75rem; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.05em; min-width: 70px; }
+.chip { font-size: 0.78rem; padding: 0.3rem 0.8rem; border-radius: 20px; border: 1.5px solid #ddd; background: white; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+.chip:hover { border-color: var(--green); color: var(--green); }
+.chip.active { background: var(--green); color: white; border-color: var(--green); }
+.chip.time-chip.active { background: #1565c0; border-color: #1565c0; }
+.chip.nutrition-chip.active { background: #e65100; border-color: #e65100; }
+.chip.history-chip.active { background: #6a1b9a; border-color: #6a1b9a; }
+.filter-sort { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.filter-sort select { padding: 0.3rem 0.6rem; border: 1.5px solid #ddd; border-radius: 20px; font-size: 0.78rem; font-family: inherit; color: #444; cursor: pointer; }
+.filter-clear { font-size: 0.78rem; color: #e53935; background: none; border: none; cursor: pointer; padding: 0.3rem 0.5rem; text-decoration: underline; font-family: inherit; }
+
+/* ── Results bar ── */
+.results-bar { font-size: 0.82rem; color: #888; margin-bottom: 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+.results-bar strong { color: #222; }
+.results-bar-right { display: flex; align-items: center; gap: 0.6rem; }
+.shop-now-btn { padding: 0.4rem 1rem; background: var(--green); color: white; border: none; border-radius: 20px; font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: inherit; display: none; transition: background 0.15s; }
+.shop-now-btn:hover { background: var(--green-dark); }
+.shop-now-btn.visible { display: inline-block; }
+.add-recipe-btn { padding: 0.4rem 1rem; background: white; color: var(--green); border: 1.5px solid var(--green); border-radius: 20px; font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.add-recipe-btn:hover { background: var(--green); color: white; }
+
+/* ── Recipe Grid ── */
+.recipe-hint { text-align: center; font-size: 0.78rem; color: #999; padding: 0.45rem 1rem; background: #f7f7f7; border-bottom: 1px solid #eee; }
+.recipe-grid { margin-top: 1rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.1rem; }
+.no-results { text-align: center; padding: 3rem; color: #aaa; grid-column: 1/-1; }
+.archived-divider { grid-column: 1/-1; display: flex; align-items: center; gap: 1rem; margin-top: 0.5rem; color: #aaa; font-size: 0.8rem; }
+.archived-divider::before, .archived-divider::after { content: ''; flex: 1; border-top: 1px solid #e0e0e0; }
+
+/* ── Recipe Card ── */
+.recipe-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); transition: box-shadow 0.2s, transform 0.2s; cursor: pointer; border: 3px solid transparent; position: relative; display: flex; flex-direction: column; }
+.recipe-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); transform: translateY(-2px); }
+.recipe-card.in-plan { border-color: var(--green); }
+.recipe-card.archived-card { opacity: 0.45; filter: grayscale(60%); cursor: default; }
+.recipe-card.archived-card:hover { transform: none; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.plan-badge { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; background: var(--green); border-radius: 50%; display: none; align-items: center; justify-content: center; color: white; font-size: 1rem; z-index: 2; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+.recipe-card.in-plan .plan-badge { display: flex; }
+.card-img-wrap { background: #f0f0f0; height: 185px; overflow: hidden; position: relative; }
+.card-img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; display: block; transition: transform 0.3s; }
+.recipe-card:not(.archived-card):hover .card-img { transform: scale(1.03); }
+.card-body { padding: 0.7rem 0.85rem 0.5rem; flex: 1; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.45rem; }
+.tag { font-size: 0.67rem; padding: 0.18rem 0.45rem; border-radius: 20px; font-weight: 700; letter-spacing: 0.02em; }
+.tag.calorie-smart { background: #d8f3dc; color: var(--green-dark); }
+.tag.veggie { background: #e8f5e9; color: #2e7d32; }
+.tag.pescatarian { background: #e3f2fd; color: #1565c0; }
+.tag.medium-spice { background: #fff3e0; color: #e65100; }
+.tag.family-friendly { background: #f3e5f5; color: #6a1b9a; }
+.tag.prepped-in-10 { background: #e0f7fa; color: #006064; }
+.card-body h3 { font-size: 0.92rem; font-weight: 700; line-height: 1.3; }
+.card-body p { font-size: 0.75rem; color: #777; margin-top: 0.2rem; line-height: 1.3; }
+.card-footer { padding: 0.5rem 0.85rem; border-top: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 0.3rem; }
+.card-time { font-size: 0.75rem; color: #888; white-space: nowrap; }
+.card-actions { display: flex; align-items: center; gap: 0.4rem; justify-content: flex-end; flex-wrap: wrap; }
+.icon-btn { font-size: 1rem; padding: 0.25rem 0.55rem; border: 1.5px solid #ddd; background: white; color: #666; border-radius: 20px; cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; line-height: 1; }
+.icon-btn:hover { border-color: var(--green); color: var(--green); }
+.icon-btn.restore-btn { border-color: #888; color: #666; }
+.icon-btn.restore-btn:hover { border-color: var(--green); color: var(--green); }
+.icon-btn.archive-btn:hover { border-color: #e53935; color: #e53935; }
+.icon-btn.edit-btn:hover { border-color: #1565c0; color: #1565c0; }
+.icon-btn.steps-btn:hover { border-color: #e65100; color: #e65100; }
+
+/* ── Steps Modal ── */
+.steps-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: none; align-items: flex-start; justify-content: center; padding: 1rem; overflow-y: auto; }
+.steps-modal-overlay.open { display: flex; }
+.steps-modal { background: white; border-radius: 14px; width: 100%; max-width: 580px; margin: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.2); overflow: hidden; }
+.steps-modal-img { width: 100%; height: 200px; object-fit: cover; object-position: center 30%; display: block; }
+.steps-modal-body { padding: 1.5rem; }
+.steps-modal-title { font-size: 1.1rem; font-weight: 700; line-height: 1.3; margin-bottom: 0.2rem; }
+.steps-modal-subtitle { font-size: 0.8rem; color: #888; margin-bottom: 1.2rem; }
+.step { display: flex; gap: 1rem; margin-bottom: 1.1rem; }
+.step-num { width: 28px; height: 28px; background: var(--green); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; flex-shrink: 0; margin-top: 0.1rem; }
+.step-content h4 { font-size: 0.88rem; font-weight: 700; margin-bottom: 0.25rem; }
+.step-content p { font-size: 0.82rem; color: #555; line-height: 1.5; }
+.steps-no-steps { color: #aaa; font-size: 0.9rem; text-align: center; padding: 2rem; }
+.steps-modal-serving { display: flex; align-items: center; gap: 0.5rem; margin: 0.8rem 0 1rem; font-size: 0.85rem; color: #666; }
+.steps-modal-serving select { padding: 0.25rem 0.5rem; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.85rem; font-family: inherit; cursor: pointer; }
+.steps-ing-section { margin-bottom: 0.8rem; }
+.steps-ing-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #999; margin-bottom: 0.35rem; }
+.steps-ing-item { font-size: 0.85rem; padding: 0.25rem 0; border-bottom: 1px solid #f5f5f5; display: flex; gap: 0.6rem; }
+.steps-ing-amt { font-weight: 700; color: var(--green); min-width: 58px; flex-shrink: 0; }
+.steps-section-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #999; margin: 1.2rem 0 0.8rem; padding-top: 1rem; border-top: 1px solid #f0f0f0; }
+.steps-modal-close { display: block; width: 100%; padding: 0.85rem; background: #f5f5f5; border: none; font-size: 0.9rem; font-weight: 700; color: #666; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+.steps-modal-close:hover { background: #e0e0e0; }
+.cook-record { font-size: 0.55rem; font-weight: 700; color: var(--green); background: #d8f3dc; border-radius: 20px; padding: 0.15rem 0.55rem; letter-spacing: 0.04em; white-space: nowrap; }
+
+/* ── Weekly Plan ── */
+.plan-empty { text-align: center; padding: 4rem 2rem; color: #aaa; }
+.plan-empty h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+.plan-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.plan-header h2 { font-size: 1rem; font-weight: 700; }
+.selected-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.1rem; margin-bottom: 1.2rem; }
+.selected-item { background: white; border-radius: 10px; padding: 0.85rem 1.1rem; display: flex; align-items: flex-start; gap: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.07); position: relative; }
+.item-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.item-info { min-width: 0; }
+.item-info h3 { font-size: 0.88rem; font-weight: 700; line-height: 1.3; }
+.item-info p { font-size: 0.75rem; color: #777; margin-top: 0.1rem; }
+.item-actions { display: flex; flex-direction: column; gap: 0.45rem; }
+.item-serves { display: flex; align-items: center; gap: 0.3rem; }
+.item-btns { display: flex; align-items: center; gap: 0.5rem; }
+.serving-picker { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; }
+.serving-picker label { color: #888; font-size: 0.78rem; }
+.serving-picker select { padding: 0.28rem 0.5rem; border: 1.5px solid #ddd; border-radius: 6px; font-size: 0.82rem; font-family: inherit; }
+.remove-btn { position: absolute; top: 0.4rem; right: 0.5rem; background: none; border: none; color: #ccc; font-size: 1.3rem; cursor: pointer; line-height: 1; padding: 0; transition: color 0.15s; }
+.remove-btn:hover { color: #e53935; }
+.plan-actions { display: flex; flex-direction: column; gap: 0.7rem; }
+.btn-primary { width: 100%; padding: 0.9rem; background: var(--green); color: white; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: background 0.2s; font-family: inherit; }
+.btn-primary:hover { background: var(--green-dark); }
+.btn-cooked { width: 100%; padding: 0.9rem; background: white; color: var(--green); border: 2.5px solid var(--green); border-radius: 10px; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.btn-cooked:hover { background: var(--green); color: white; }
+.toast { border-radius: 10px; padding: 0.8rem 1rem; font-size: 0.85rem; text-align: center; display: none; }
+.toast.visible { display: block; }
+.toast.green { background: #d8f3dc; border: 1.5px solid #95d5b2; color: var(--green-dark); }
+
+/* ── Shopping List ── */
+.list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.list-header h2 { font-size: 1rem; font-weight: 700; }
+.print-btn { padding: 0.45rem 1rem; background: white; border: 2px solid var(--green); color: var(--green); border-radius: 8px; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.print-btn:hover { background: var(--green); color: white; }
+.meal-summary { background: #e8f5e9; border-radius: 10px; padding: 0.7rem 1rem; margin-bottom: 1rem; font-size: 0.9rem; color: var(--green-dark); }
+.meal-summary strong { display: block; font-weight: 700; margin-bottom: 0.3rem; }
+.shopping-section { background: white; border-radius: 12px; margin-bottom: 1rem; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+.shopping-section h3 { padding: 0.75rem 1.1rem; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: white; }
+.section-fresh h3 { background: var(--green); }
+.section-pantry h3 { background: #78909c; }
+.shopping-grid { columns: 3; column-gap: 0; padding: 0.2rem 0; }
+@media (max-width: 768px) { .shopping-grid { columns: 2; } }
+@media (max-width: 480px) { .shopping-grid { columns: 1; } }
+.shopping-item { padding: 0.55rem 1.1rem; border-bottom: 1px solid #f5f5f5; break-inside: avoid; font-size: 1rem; line-height: 1.3; }
+.shopping-item:last-child { border-bottom: none; }
+.item-amount { font-weight: 700; color: var(--green); }
+.item-sep { color: #bbb; }
+.item-name { color: #222; }
+.sainsburys-link { margin-left: 0.4rem; font-size: 0.85rem; text-decoration: none; opacity: 0.5; transition: opacity 0.15s; }
+.sainsburys-link:hover { opacity: 1; }
+.empty-list { text-align: center; padding: 3rem; color: #aaa; }
+
+/* ── Add Recipe Modal ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: none; align-items: flex-start; justify-content: center; padding: 1rem; overflow-y: auto; }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: 14px; width: 100%; max-width: 760px; margin: auto; padding: 1.5rem; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; }
+.modal-header h2 { font-size: 1.1rem; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #aaa; line-height: 1; padding: 0; }
+.modal-close:hover { color: #222; }
+.form-section { margin-bottom: 1.2rem; }
+.form-section h3 { font-size: 0.8rem; font-weight: 700; color: #666; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem; }
+.form-row { display: flex; gap: 0.6rem; margin-bottom: 0.6rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; }
+.form-group label { font-size: 0.8rem; font-weight: 600; color: #444; }
+.form-group input, .form-group select, .form-group textarea { padding: 0.5rem 0.7rem; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.88rem; font-family: inherit; transition: border-color 0.15s; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--green); }
+.form-group textarea { resize: vertical; min-height: 60px; }
+.tag-checkboxes { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.tag-checkboxes label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.82rem; cursor: pointer; padding: 0.25rem 0.6rem; border: 1.5px solid #ddd; border-radius: 20px; transition: all 0.15s; }
+.tag-checkboxes label:hover { border-color: var(--green); }
+.tag-checkboxes input[type=checkbox]:checked + span { color: var(--green); font-weight: 700; }
+.tag-checkboxes label:has(input:checked) { border-color: var(--green); background: #e8f5e9; }
+.tag-checkboxes input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--green); }
+.ingredient-rows { display: flex; flex-direction: column; gap: 0.3rem; }
+.ingredient-row { display: flex; gap: 0.3rem; align-items: center; }
+.ingredient-row input { padding: 0.35rem 0.4rem; border: 1.5px solid #ddd; border-radius: 6px; font-size: 0.78rem; font-family: inherit; min-width: 0; }
+.ingredient-row input:focus { outline: none; border-color: var(--green); }
+.ingredient-row input.ing-name { flex: 3; }
+.ingredient-row input.ing-unit { flex: 1.2; }
+.ingredient-row input.ing-2p, .ingredient-row input.ing-3p, .ingredient-row input.ing-4p { flex: 1; text-align: center; }
+.ingredient-row .del-row { background: none; border: none; color: #ccc; font-size: 1.1rem; cursor: pointer; padding: 0 0.2rem; flex-shrink: 0; }
+.ingredient-row .del-row:hover { color: #e53935; }
+.ing-header { display: flex; gap: 0.3rem; align-items: center; margin-bottom: 0.2rem; }
+.ih-name { flex: 3; font-size: 0.7rem; color: #bbb; font-weight: 600; padding-left: 0.2rem; }
+.ih-unit { flex: 1.2; font-size: 0.7rem; color: #bbb; font-weight: 600; padding-left: 0.2rem; }
+.ih-amt { flex: 1; font-size: 0.7rem; color: #bbb; font-weight: 600; text-align: center; }
+.add-row-btn { font-size: 0.8rem; color: var(--green); background: none; border: none; cursor: pointer; padding: 0.25rem 0; font-family: inherit; text-decoration: underline; margin-top: 0.2rem; }
+.step-row { display: flex; gap: 0.4rem; align-items: flex-start; margin-bottom: 0.5rem; }
+.step-row .step-num { font-size: 0.78rem; font-weight: 700; color: #aaa; min-width: 1.4rem; padding-top: 0.45rem; flex-shrink: 0; }
+.step-row .step-title { flex: 1.4; padding: 0.35rem 0.4rem; border: 1.5px solid #ddd; border-radius: 6px; font-size: 0.78rem; font-family: inherit; min-width: 0; }
+.step-row .step-title:focus { outline: none; border-color: var(--green); }
+.step-row .step-text { flex: 3; padding: 0.35rem 0.4rem; border: 1.5px solid #ddd; border-radius: 6px; font-size: 0.78rem; font-family: inherit; min-width: 0; resize: vertical; min-height: 2.6rem; }
+.step-row .step-text:focus { outline: none; border-color: var(--green); }
+.step-row .del-row { background: none; border: none; color: #ccc; font-size: 1.1rem; cursor: pointer; padding: 0 0.2rem; flex-shrink: 0; margin-top: 0.25rem; }
+.step-row .del-row:hover { color: #e53935; }
+.modal-footer { display: flex; gap: 0.8rem; margin-top: 1.5rem; }
+.modal-footer button { flex: 1; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; font-weight: 700; cursor: pointer; font-family: inherit; border: none; }
+.btn-cancel { background: #f5f5f5; color: #666; }
+.btn-cancel:hover { background: #e0e0e0; }
+.btn-save { background: var(--green); color: white; }
+.btn-save:hover { background: var(--green-dark); }
+.custom-badge { position: absolute; top: 8px; left: 8px; background: #1565c0; color: white; font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.45rem; border-radius: 20px; z-index: 2; }
+.no-img-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e8f5e9, #c8e6c9); color: var(--green); font-size: 2.5rem; }
+
+@media print {
+  header, .list-header .print-btn { print-color-adjust: exact; }
+  #sticky-top, .list-header .print-btn { display: none; }
+  #page-list, #page-plan { display: none !important; }
+  #page-shop { display: block !important; padding: 0; max-width: 100%; }
+  .shopping-section { box-shadow: none; border: 1px solid #ddd; }
+  .shopping-item { padding: 0.45rem 1.1rem; font-size: 0.95rem; }
+  .sainsburys-link { display: none; }
+  .section-fresh h3, .section-pantry h3 { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+@media (max-width: 600px) {
+  .page { padding: 0.8rem; }
+  header { padding: 0.8rem 1rem; }
+  nav { gap: 0.2rem; padding: 0.3rem 0.3rem 0; }
+  nav button { font-size: 0.78rem; font-weight: 600; padding: 0.5rem 0.3rem 0.4rem; }
+  nav button small { display: none; }
+  .recipe-grid, .selected-list { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; margin-top: 0.6rem; }
+  .card-img-wrap { height: 100px; }
+  #plan-count-label { display: none; }
+  .card-footer { padding: 0.4rem 0.6rem; }
+  .icon-btn { font-size: 0.88rem; padding: 0.22rem 0.45rem; }
+}
+/* ── Auth UI ── */
+.auth-btn { background: rgba(255,255,255,0.15); border: 1.5px solid rgba(255,255,255,0.4); color: white; border-radius: 8px; padding: 0.35rem 0.7rem; font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; }
+.auth-btn:hover { background: rgba(255,255,255,0.28); }
+.auth-user { display: flex; align-items: center; gap: 0.5rem; color: white; font-size: 0.78rem; }
+.auth-user img { width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.5); }
+.auth-user span { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.9; }
+.cloud-status { font-size: 0.65rem; opacity: 0.6; margin-top: 0.1rem; }
+.auth-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: center; justify-content: center; padding: 1rem; }
+.auth-modal-overlay.open { display: flex; }
+.auth-modal { background: white; border-radius: 14px; width: 100%; max-width: 380px; padding: 2rem; box-shadow: 0 8px 40px rgba(0,0,0,0.2); }
+.auth-modal h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.3rem; }
+.auth-modal p { font-size: 0.82rem; color: #888; margin-bottom: 1.5rem; }
+.auth-google-btn { display: flex; align-items: center; justify-content: center; gap: 0.6rem; width: 100%; padding: 0.7rem; border: 1.5px solid #ddd; border-radius: 8px; background: white; font-size: 0.88rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; margin-bottom: 1.2rem; }
+.auth-google-btn:hover { background: #f5f5f5; }
+.auth-divider { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.2rem; color: #bbb; font-size: 0.75rem; }
+.auth-divider::before, .auth-divider::after { content:''; flex:1; border-top: 1px solid #eee; }
+.auth-modal input[type=email], .auth-modal input[type=password] { width: 100%; padding: 0.6rem 0.75rem; border: 1.5px solid #ddd; border-radius: 8px; font-size: 0.88rem; font-family: inherit; margin-bottom: 0.7rem; display: block; }
+.auth-modal input:focus { outline: none; border-color: var(--green); }
+.auth-submit-btn { width: 100%; padding: 0.7rem; background: var(--green); color: white; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 700; cursor: pointer; font-family: inherit; margin-bottom: 0.8rem; }
+.auth-submit-btn:hover { background: var(--green-dark); }
+.auth-toggle { text-align: center; font-size: 0.8rem; color: #888; }
+.auth-toggle a { color: var(--green); cursor: pointer; text-decoration: underline; }
+.auth-error { font-size: 0.8rem; color: #e53935; margin-bottom: 0.6rem; display: none; }
+.auth-reset { text-align: center; font-size: 0.78rem; margin-top: 0.3rem; }
+.auth-reset a { color: #888; cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<body>
+
+<div id="app-content">
+
+<header>
+  <div>
+    <h1>🥘 Hello Garee's Recipe Planner</h1>
+    <p>Select meals · plan your week · get your shopping list</p>
+  </div>
+  <div style="display:flex;gap:0.5rem;flex-shrink:0;align-items:center">
+    <div id="auth-area"><button class="auth-btn" onclick="openAuthModal()">☁ Sign In</button></div>
+  </div>
+</header>
+
+<div id="sticky-top">
+<nav>
+  <button id="nav-list" class="active" onclick="showPage('list',this)"><span>📋 Recipes <span id="badge-total"></span></span><small>Pick your meals</small></button>
+  <button id="nav-plan" onclick="showPage('plan',this)"><span>🗓 Weekly Plan <span id="badge-plan"></span></span><small>Review &amp; confirm</small></button>
+  <button id="nav-shop" onclick="showPage('shop',this)">🛒 Shopping List<small>Buy ingredients</small></button>
+</nav>
+<div id="list-sticky">
+  <div class="filter-bar">
+    <div class="filter-bar-header">
+      <span style="cursor:pointer;display:flex;align-items:center;gap:0.5rem;flex-shrink:0" onclick="toggleFilters()">🔍 Filters &amp; Sort <span id="active-filter-count" class="filter-active-count" style="display:none"></span></span>
+      <input type="search" id="search-input" placeholder="Search recipes…" oninput="onSearchInput()" onclick="event.stopPropagation()" style="flex:1;margin:0 0.6rem;padding:0.3rem 0.7rem;border:1.5px solid #ddd;border-radius:20px;font-size:0.82rem;font-family:inherit;outline:none;">
+      <span id="results-label" style="font-size:0.78rem;color:#999;font-weight:400;flex-shrink:0"></span>
+      <span style="cursor:pointer;flex-shrink:0" onclick="toggleFilters()"><span id="filter-toggle-icon" class="filter-toggle-icon">▼</span></span>
+    </div>
+    <div class="filter-body" id="filter-body" style="display:none">
+      <div class="filter-row">
+        <label>Diet</label>
+        <button class="chip active" onclick="toggleTagFilter('all',this)">All</button>
+        <button class="chip" onclick="toggleTagFilter('Calorie Smart',this)">Calorie Smart</button>
+        <button class="chip" onclick="toggleTagFilter('Veggie',this)">Veggie</button>
+        <button class="chip" onclick="toggleTagFilter('Pescatarian',this)">Pescatarian</button>
+        <button class="chip" onclick="toggleTagFilter('Medium Spice',this)">Medium Spice</button>
+        <button class="chip" onclick="toggleTagFilter('Family Friendly',this)">Family Friendly</button>
+        <button class="chip" onclick="toggleTagFilter('Prepped in 10',this)">Prepped in 10</button>
+      </div>
+      <div class="filter-row">
+        <label>Time</label>
+        <button class="chip time-chip active" onclick="setTimeFilter('all',this)">Any time</button>
+        <button class="chip time-chip" onclick="setTimeFilter(20,this)">Quick ≤20 min</button>
+        <button class="chip time-chip" onclick="setTimeFilter(35,this)">Medium ≤35 min</button>
+        <button class="chip time-chip" onclick="setTimeFilter(99,this)">Longer 35+ min</button>
+      </div>
+      <div class="filter-row">
+        <label>Nutrition</label>
+        <button class="chip nutrition-chip" data-nk="highProtein" onclick="toggleNutritionFilter(this)">💪 High Protein</button>
+        <button class="chip nutrition-chip" data-nk="lowCal" onclick="toggleNutritionFilter(this)">🥗 Low Calorie</button>
+        <button class="chip nutrition-chip" data-nk="highFibre" onclick="toggleNutritionFilter(this)">🌿 High Fibre</button>
+        <button class="chip nutrition-chip" data-nk="lowCarb" onclick="toggleNutritionFilter(this)">Low Carb</button>
+      </div>
+      <div class="filter-row">
+        <label>History</label>
+        <button class="chip history-chip active" onclick="setHistoryFilter('all',this)">All</button>
+        <button class="chip history-chip" onclick="setHistoryFilter('never',this)">Never tried</button>
+        <button class="chip history-chip" onclick="setHistoryFilter('tried',this)">Tried before</button>
+        <button class="chip history-chip" onclick="setHistoryFilter('fave',this)">Favourites ×3+</button>
+      </div>
+      <div class="filter-row">
+        <label>Sort</label>
+        <div class="filter-sort">
+          <select id="sort-select" onchange="renderRecipes()">
+            <option value="default">Default order</option>
+            <option value="az">A → Z</option>
+            <option value="quickest">Quickest first</option>
+            <option value="most-cooked">Most cooked</option>
+            <option value="least-cooked">Least cooked</option>
+          </select>
+          <button class="filter-clear" onclick="clearAllFilters()">Clear all filters</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="results-bar">
+    <span id="plan-count-label"></span>
+    <div class="results-bar-right">
+      <button class="shop-now-btn" id="shop-now-btn" onclick="goToShoppingList()">🛒 Shopping List</button>
+      <button class="shop-now-btn" id="clear-plan-btn" onclick="clearPlan()" style="background:#e53935">✕ Clear Selected</button>
+      <button class="add-recipe-btn" onclick="openAddModal()">+ Add Recipe</button>
+    </div>
+  </div>
+  <div class="recipe-hint">👆 Click any recipe card to add it to your weekly plan</div>
+</div><!-- #list-sticky -->
+</div><!-- #sticky-top -->
+
+<!-- ═══ AUTH MODAL ═══ -->
+<div class="auth-modal-overlay" id="auth-modal" onclick="if(event.target===this)closeAuthModal()">
+  <div class="auth-modal">
+    <h2 id="auth-modal-title">Sign in</h2>
+    <p id="auth-modal-subtitle">Save your recipes and plan across devices.</p>
+    <button class="auth-google-btn" onclick="signInWithGoogle()">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.29-8.16 2.29-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <div class="auth-divider">or</div>
+    <div id="auth-error" class="auth-error"></div>
+    <input type="email" id="auth-email" placeholder="Email address" autocomplete="email">
+    <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
+    <button class="auth-submit-btn" id="auth-submit-btn" onclick="submitEmailAuth()">Sign in</button>
+    <div class="auth-reset"><a onclick="sendPasswordReset()">Forgot password?</a></div>
+    <div class="auth-toggle" id="auth-toggle">No account? <a onclick="toggleAuthMode()">Create one</a></div>
+  </div>
+</div>
+
+<!-- ═══ RECIPES PAGE ═══ -->
+<div id="page-list" class="page active">
+  <div class="recipe-grid" id="recipe-grid"></div>
+</div>
+
+<!-- ═══ WEEKLY PLAN PAGE ═══ -->
+<div id="page-plan" class="page">
+  <div id="plan-content"></div>
+</div>
+
+<!-- ═══ SHOPPING LIST PAGE ═══ -->
+<div id="page-shop" class="page">
+  <div id="shop-content"><div class="empty-list">Select meals in your Weekly Plan first.</div></div>
+</div>
+
+<!-- ═══ ADD RECIPE MODAL ═══ -->
+<div class="modal-overlay" id="add-modal" onclick="closeModalIfOverlay(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Add Recipe</h2>
+      <button class="modal-close" onclick="closeAddModal()">×</button>
+    </div>
+
+    <div class="form-section">
+      <h3>Details</h3>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>Recipe name *</label>
+          <input type="text" id="f-name" placeholder="e.g. Spaghetti Bolognese">
+        </div>
+        <div class="form-group">
+          <label>Cook time *</label>
+          <input type="text" id="f-time" placeholder="e.g. 30 mins">
+        </div>
+        <div class="form-group" id="count-field" style="display:none;max-width:90px">
+          <label>Times cooked</label>
+          <input type="number" id="f-count" min="0" placeholder="0">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Subtitle / description</label>
+        <input type="text" id="f-subtitle" placeholder="e.g. with Garlic Bread">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Tags</h3>
+      <div class="tag-checkboxes">
+        <label><input type="checkbox" value="Calorie Smart"><span>Calorie Smart</span></label>
+        <label><input type="checkbox" value="Veggie"><span>Veggie</span></label>
+        <label><input type="checkbox" value="Pescatarian"><span>Pescatarian</span></label>
+        <label><input type="checkbox" value="Medium Spice"><span>Medium Spice</span></label>
+        <label><input type="checkbox" value="Family Friendly"><span>Family Friendly</span></label>
+        <label><input type="checkbox" value="Prepped in 10"><span>Prepped in 10</span></label>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Nutritional flags</h3>
+      <div class="tag-checkboxes">
+        <label><input type="checkbox" id="f-hp"><span>💪 High Protein</span></label>
+        <label><input type="checkbox" id="f-lc"><span>🥗 Low Calorie</span></label>
+        <label><input type="checkbox" id="f-hf"><span>🌿 High Fibre</span></label>
+        <label><input type="checkbox" id="f-lb"><span>Low Carb</span></label>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Fresh Ingredients</h3>
+      <div class="ing-header">
+        <span class="ih-name">Ingredient</span>
+        <span class="ih-unit">Unit</span>
+        <span class="ih-amt">2P</span>
+        <span class="ih-amt">3P</span>
+        <span class="ih-amt">4P</span>
+        <span style="width:24px;flex-shrink:0"></span>
+      </div>
+      <div class="ingredient-rows" id="ingredient-rows"></div>
+      <button class="add-row-btn" onclick="addFreshRow()">+ Add ingredient</button>
+    </div>
+
+    <div class="form-section">
+      <h3>Pantry Ingredients <span style="font-weight:400;color:#aaa;font-size:0.75rem;text-transform:none;letter-spacing:0">(oil, butter, sugar, etc.)</span></h3>
+      <div class="ing-header">
+        <span class="ih-name">Ingredient</span>
+        <span class="ih-unit">Unit</span>
+        <span class="ih-amt">2P</span>
+        <span class="ih-amt">3P</span>
+        <span class="ih-amt">4P</span>
+        <span style="width:24px;flex-shrink:0"></span>
+      </div>
+      <div class="ingredient-rows" id="pantry-rows"></div>
+      <button class="add-row-btn" onclick="addPantryRow()">+ Add pantry item</button>
+    </div>
+
+    <div class="form-section">
+      <h3>Photo (optional)</h3>
+      <div class="form-group">
+        <label>Image file or URL</label>
+        <input type="text" id="f-img" placeholder="Paste an image URL, or leave blank for a placeholder">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Steps <span style="font-weight:400;color:#aaa;font-size:0.75rem;text-transform:none;letter-spacing:0">(optional)</span></h3>
+      <div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.3rem;padding-left:1.8rem">
+        <span style="flex:1.4;font-size:0.7rem;color:#bbb;font-weight:600">Title</span>
+        <span style="flex:3;font-size:0.7rem;color:#bbb;font-weight:600">Instructions</span>
+        <span style="width:24px;flex-shrink:0"></span>
+      </div>
+      <div id="steps-rows"></div>
+      <button class="add-row-btn" onclick="addStepRow()">+ Add step</button>
+    </div>
+
+    <div id="modal-error" style="color:#e53935;font-size:0.82rem;display:none;margin-top:0.5rem"></div>
+    <div class="modal-footer">
+      <button class="modal-footer btn-cancel" onclick="closeAddModal()">Cancel</button>
+      <button class="modal-footer btn-save" onclick="saveRecipe()">Save Recipe</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ STEPS MODAL ═══ -->
+<div class="steps-modal-overlay" id="steps-modal" onclick="if(event.target===this)closeStepsModal()">
+  <div class="steps-modal">
+    <div id="steps-modal-content"></div>
+    <button class="steps-modal-close" onclick="closeStepsModal()">Close</button>
+  </div>
+</div>
+
+<script>
+// ─── Firebase Config ──────────────────────────────────────────────────────────
+// Paste your Firebase project config here. Get it from:
+// Firebase Console → Project Settings → Your apps → Web app → SDK setup and configuration
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAhkyCO2WY_PmW9Q9u28gIxc1QwMCrprRQ",
+  authDomain: "hello-garee-recipes.firebaseapp.com",
+  projectId: "hello-garee-recipes",
+  storageBucket: "hello-garee-recipes.firebasestorage.app",
+  messagingSenderId: "622875920594",
+  appId: "1:622875920594:web:157bbc64a976bf5fa8050b",
+  measurementId: "G-Y7KJJ8KFEM"
+};
+// ─── Firebase Init ────────────────────────────────────────────────────────────
+let fbAuth = null, fbDb = null, currentUser = null;
+if (FIREBASE_CONFIG) {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  fbAuth = firebase.auth();
+  fbDb = firebase.firestore();
+  fbAuth.onAuthStateChanged(user => {
+    currentUser = user;
+    updateAuthUI();
+    if (user) loadFromCloud(user.uid);
+  });
+}
+
+// ─── Cloud Sync ───────────────────────────────────────────────────────────────
+function userDoc(uid) { return fbDb.collection('users').doc(uid); }
+
+async function loadFromCloud(uid) {
+  try {
+    const doc = await userDoc(uid).get();
+    if (doc.exists) mergeCloudData(doc.data());
+  } catch(e) { console.error('Cloud load failed:', e); }
+  renderRecipes(); renderPlan();
+  setCloudStatus('Synced ✓');
+}
+
+function mergeCloudData(data) {
+  const local = getCustomRecipes();
+  const localIds = new Set(local.map(r => r.id));
+  const merged = [...local, ...(data.customRecipes||[]).filter(r => !localIds.has(r.id))];
+  if (merged.length !== local.length) lsRaw('customRecipes', merged);
+
+  const ov = { ...(data.recipeOverrides||{}), ...getOverrides() };
+  lsRaw('recipeOverrides', ov);
+
+  const counts = getCounts(), cloudCounts = data.recipeCookCounts||{};
+  const mergedCounts = { ...cloudCounts };
+  Object.keys(counts).forEach(id => { mergedCounts[id] = Math.max(counts[id]||0, mergedCounts[id]||0); });
+  lsRaw('recipeCookCounts', mergedCounts);
+
+  const arch = new Set([...(data.archivedRecipes||[]), ...getArchived()]);
+  lsRaw('archivedRecipes', [...arch]);
+
+  state.plan = { ...(data.weeklyPlan||{}), ...state.plan };
+  lsRaw('weeklyPlan', state.plan);
+}
+
+let _saveTimer = null;
+function scheduleSaveToCloud() {
+  if (!currentUser || !fbDb) return;
+  setCloudStatus('Saving…');
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveToCloud, 1500);
+}
+async function saveToCloud() {
+  if (!currentUser || !fbDb) return;
+  try {
+    await userDoc(currentUser.uid).set({
+      customRecipes: getCustomRecipes(),
+      recipeOverrides: getOverrides(),
+      recipeCookCounts: getCounts(),
+      archivedRecipes: [...getArchived()],
+      weeklyPlan: state.plan,
+      lastSaved: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    setCloudStatus('Synced ✓');
+  } catch(e) { setCloudStatus('Sync failed ✗'); console.error('Cloud save failed:', e); }
+}
+
+function setCloudStatus(msg) {
+  const el = document.getElementById('cloud-status');
+  if (el) el.textContent = msg;
+}
+
+// ─── Auth UI ──────────────────────────────────────────────────────────────────
+let authMode = 'signin';
+
+function updateAuthUI() {
+  const area = document.getElementById('auth-area');
+  if (!area) return;
+  if (currentUser) {
+    const name = currentUser.displayName || currentUser.email.split('@')[0];
+    const photo = currentUser.photoURL ? `<img src="${currentUser.photoURL}" alt="">` : '';
+    area.innerHTML = `<div class="auth-user">${photo}<div><span>${name}</span><div class="cloud-status" id="cloud-status">Synced ✓</div></div><button class="auth-btn" onclick="signOut()">Sign Out</button></div>`;
+  } else {
+    area.innerHTML = `<button class="auth-btn" onclick="openAuthModal()">☁ Sign In</button>`;
+  }
+}
+
+function openAuthModal() {
+  authMode = 'signin';
+  document.getElementById('auth-modal-title').textContent = 'Sign in';
+  document.getElementById('auth-submit-btn').textContent = 'Sign in';
+  document.getElementById('auth-toggle').innerHTML = 'No account? <a onclick="toggleAuthMode()">Create one</a>';
+  document.getElementById('auth-error').style.display = 'none';
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-password').value = '';
+  document.getElementById('auth-modal').classList.add('open');
+  setTimeout(() => document.getElementById('auth-email').focus(), 100);
+}
+function closeAuthModal() { document.getElementById('auth-modal').classList.remove('open'); }
+
+function toggleAuthMode() {
+  authMode = authMode === 'signin' ? 'signup' : 'signin';
+  const isSignUp = authMode === 'signup';
+  document.getElementById('auth-modal-title').textContent = isSignUp ? 'Create account' : 'Sign in';
+  document.getElementById('auth-submit-btn').textContent = isSignUp ? 'Create account' : 'Sign in';
+  document.getElementById('auth-toggle').innerHTML = isSignUp
+    ? 'Already have an account? <a onclick="toggleAuthMode()">Sign in</a>'
+    : 'No account? <a onclick="toggleAuthMode()">Create one</a>';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+async function signInWithGoogle() {
+  if (!fbAuth) return;
+  try {
+    await fbAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
+    closeAuthModal();
+  } catch(e) { showAuthError(e.message); }
+}
+
+async function submitEmailAuth() {
+  if (!fbAuth) return;
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if (!email || !password) { showAuthError('Email and password are required.'); return; }
+  try {
+    if (authMode === 'signup') {
+      await fbAuth.createUserWithEmailAndPassword(email, password);
+    } else {
+      await fbAuth.signInWithEmailAndPassword(email, password);
+    }
+    closeAuthModal();
+  } catch(e) {
+    const msgs = {
+      'auth/wrong-password': 'Incorrect password.',
+      'auth/user-not-found': 'No account with that email.',
+      'auth/email-already-in-use': 'An account with that email already exists.',
+      'auth/weak-password': 'Password must be at least 6 characters.',
+      'auth/invalid-email': 'Invalid email address.',
+    };
+    showAuthError(msgs[e.code] || e.message);
+  }
+}
+
+async function sendPasswordReset() {
+  if (!fbAuth) return;
+  const email = document.getElementById('auth-email').value.trim();
+  if (!email) { showAuthError('Enter your email address first.'); return; }
+  try {
+    await fbAuth.sendPasswordResetEmail(email);
+    showAuthError(''); document.getElementById('auth-error').style.display = 'none';
+    alert('Password reset email sent — check your inbox.');
+  } catch(e) { showAuthError(e.message); }
+}
+
+async function signOut() {
+  if (!fbAuth) return;
+  await fbAuth.signOut();
+  currentUser = null;
+  updateAuthUI();
+}
+
+// ─── Built-in Recipes ─────────────────────────────────────────────────────────
+const BUILTIN_RECIPES = [
+  {
+    id:1, img:"images/moules-frites.jpg",
+    name:"Lemon, Parsley and White Wine Moules Frites",
+    subtitle:"with Tomato and Baby Leaf Salad",
+    tags:["Calorie Smart","Pescatarian"], time:"35-40 mins", maxTime:40,
+    highProtein:true, lowCal:false, highFibre:false, lowCarb:false,
+    ingredients:{
+      "2P":[{name:"Potatoes",amount:450,unit:"g"},{name:"Garlic Clove",amount:2,unit:"cloves"},{name:"Echalion Shallot",amount:1,unit:""},{name:"Lemon",amount:1,unit:""},{name:"Flat Leaf Parsley",amount:1,unit:"bunch"},{name:"Intense Tomato",amount:1,unit:""},{name:"Cider Vinegar",amount:15,unit:"ml"},{name:"Mussels",amount:500,unit:"g"},{name:"Creme Fraiche",amount:75,unit:"g"},{name:"White Wine Stock Powder",amount:1,unit:"sachet"},{name:"Baby Leaf Mix",amount:50,unit:"g"}],
+      "3P":[{name:"Potatoes",amount:700,unit:"g"},{name:"Garlic Clove",amount:3,unit:"cloves"},{name:"Echalion Shallot",amount:1.5,unit:""},{name:"Lemon",amount:1,unit:""},{name:"Flat Leaf Parsley",amount:1,unit:"bunch"},{name:"Intense Tomato",amount:1.5,unit:""},{name:"Cider Vinegar",amount:22.5,unit:"ml"},{name:"Mussels",amount:750,unit:"g"},{name:"Creme Fraiche",amount:120,unit:"g"},{name:"White Wine Stock Powder",amount:1.5,unit:"sachets"},{name:"Baby Leaf Mix",amount:70,unit:"g"}],
+      "4P":[{name:"Potatoes",amount:900,unit:"g"},{name:"Garlic Clove",amount:4,unit:"cloves"},{name:"Echalion Shallot",amount:2,unit:""},{name:"Lemon",amount:2,unit:""},{name:"Flat Leaf Parsley",amount:2,unit:"bunches"},{name:"Intense Tomato",amount:2,unit:""},{name:"Cider Vinegar",amount:30,unit:"ml"},{name:"Mussels",amount:1000,unit:"g"},{name:"Creme Fraiche",amount:150,unit:"g"},{name:"White Wine Stock Powder",amount:2,unit:"sachets"},{name:"Baby Leaf Mix",amount:100,unit:"g"}],
+      pantry:{"2P":[{name:"Mayonnaise",amount:2,unit:"tbsp"},{name:"Sugar",amount:1,unit:"tsp"},{name:"Olive Oil",amount:1,unit:"tbsp"},{name:"Water for Sauce",amount:100,unit:"ml"}],"3P":[{name:"Mayonnaise",amount:3,unit:"tbsp"},{name:"Sugar",amount:1.5,unit:"tsp"},{name:"Olive Oil",amount:1.5,unit:"tbsp"},{name:"Water for Sauce",amount:150,unit:"ml"}],"4P":[{name:"Mayonnaise",amount:4,unit:"tbsp"},{name:"Sugar",amount:2,unit:"tsp"},{name:"Olive Oil",amount:2,unit:"tbsp"},{name:"Water for Sauce",amount:200,unit:"ml"}]}
+    },
+    steps:[{n:1,title:"Make your Frites",text:"Preheat oven to 220°C/200°C fan. Chop potatoes into 1cm wide fries (no need to peel). Drizzle with oil, season, toss. Bake on top shelf until golden, 25-30 mins."},{n:2,title:"Prep Time",text:"Peel and grate garlic. Chop shallot. Cut lemon into wedges. Roughly chop parsley. Cut tomato into 2cm chunks. Combine cider vinegar, sugar and olive oil for dressing. Set aside."},{n:3,title:"Get Frying",text:"Drain and rinse mussels. Discard broken shells. Heat oil in a large saucepan. Add shallot and cook 3-4 mins. Add garlic and fry 1 min."},{n:4,title:"Simmer the Mussels",text:"Add mussels, creme fraiche, stock powder and water for sauce. Bring to boil. Lid on, cook on medium-high 5 mins. Discard any mussels that don't open."},{n:5,title:"Finishing Touches",text:"Remove from heat. Stir in lemon juice and half the parsley. Toss tomato and baby leaves in the dressing."},{n:6,title:"Serve Up",text:"Share mussels between bowls, sprinkle over remaining parsley. Serve frites and salad alongside with mayo for dipping. Enjoy!"}]
+  },
+  {
+    id:2, img:"images/pesto-rigatoni.jpg",
+    name:"Presto Pesto Pea Rigatoni",
+    subtitle:"with Spinach and Roasted Tomatoes",
+    tags:["Family Friendly","Veggie"], time:"20 mins", maxTime:20,
+    highProtein:false, lowCal:false, highFibre:false, lowCarb:false,
+    ingredients:{
+      "2P":[{name:"Baby Plum Tomatoes",amount:125,unit:"g"},{name:"Garlic Clove",amount:2,unit:"cloves"},{name:"Rigatoni Pasta",amount:180,unit:"g"},{name:"Vegetable Stock Paste",amount:10,unit:"g"},{name:"Creme Fraiche",amount:150,unit:"g"},{name:"Peas",amount:120,unit:"g"},{name:"Baby Spinach",amount:40,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:20,unit:"g"},{name:"Basil Pesto",amount:30,unit:"g"}],
+      "3P":[{name:"Baby Plum Tomatoes",amount:190,unit:"g"},{name:"Garlic Clove",amount:3,unit:"cloves"},{name:"Rigatoni Pasta",amount:270,unit:"g"},{name:"Vegetable Stock Paste",amount:15,unit:"g"},{name:"Creme Fraiche",amount:225,unit:"g"},{name:"Peas",amount:180,unit:"g"},{name:"Baby Spinach",amount:40,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:45,unit:"g"},{name:"Basil Pesto",amount:45,unit:"g"}],
+      "4P":[{name:"Baby Plum Tomatoes",amount:250,unit:"g"},{name:"Garlic Clove",amount:4,unit:"cloves"},{name:"Rigatoni Pasta",amount:360,unit:"g"},{name:"Vegetable Stock Paste",amount:20,unit:"g"},{name:"Creme Fraiche",amount:300,unit:"g"},{name:"Peas",amount:240,unit:"g"},{name:"Baby Spinach",amount:100,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:60,unit:"g"},{name:"Basil Pesto",amount:60,unit:"g"}],
+      pantry:{"2P":[{name:"Sugar",amount:0.5,unit:"tsp"},{name:"Water for Sauce",amount:150,unit:"ml"}],"3P":[{name:"Sugar",amount:0.8,unit:"tsp"},{name:"Water for Sauce",amount:200,unit:"ml"}],"4P":[{name:"Sugar",amount:1,unit:"tsp"},{name:"Water for Sauce",amount:250,unit:"ml"}]}
+    },
+    steps:[{n:1,title:"Get Prepped",text:"Preheat oven to 220°C. Bring salted water to boil for pasta. Halve the tomatoes. Grate the garlic."},{n:2,title:"Roast the Tomatoes",text:"Put tomatoes on foil, drizzle with oil, season with salt and sugar. Fold into a parcel and roast on top shelf 12-15 mins."},{n:3,title:"Pasta Time",text:"Add rigatoni to boiling water and cook until tender, 12 mins."},{n:4,title:"Creamy Sauce",text:"Fry garlic in oil 1 min. Add water for sauce and stock paste, simmer 1-2 mins. Stir in creme fraiche."},{n:5,title:"All Together Now",text:"Drain pasta and add to sauce with the peas. Heat 1-2 mins. Add spinach until wilted. Stir through cheese."},{n:6,title:"Finish and Serve",text:"Spoon into bowls, drizzle over pesto. Top with roasted tomatoes and their juices."}]
+  },
+  {
+    id:3, img:"images/butter-bean-cassoulet.jpg",
+    name:"Italian Inspired Butter Bean Cassoulet",
+    subtitle:"with Courgette, Pesto and Toasted Ciabatta",
+    tags:["Calorie Smart","Prepped in 10","Veggie"], time:"25-30 mins", maxTime:30,
+    highProtein:false, lowCal:false, highFibre:true, lowCarb:false,
+    ingredients:{
+      "2P":[{name:"Courgette",amount:1,unit:""},{name:"Garlic Clove",amount:2,unit:"cloves"},{name:"Butter Beans",amount:1,unit:"carton"},{name:"Tomato Puree",amount:30,unit:"g"},{name:"Red Wine Stock Paste",amount:28,unit:"g"},{name:"Mixed Herbs",amount:1,unit:"sachet"},{name:"Baby Plum Tomatoes",amount:125,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:20,unit:"g"},{name:"Basil Pesto",amount:30,unit:"g"},{name:"Ciabatta",amount:2,unit:""}],
+      "3P":[{name:"Courgette",amount:1.5,unit:""},{name:"Garlic Clove",amount:3,unit:"cloves"},{name:"Butter Beans",amount:1.5,unit:"cartons"},{name:"Tomato Puree",amount:45,unit:"g"},{name:"Red Wine Stock Paste",amount:42,unit:"g"},{name:"Mixed Herbs",amount:1.5,unit:"sachets"},{name:"Baby Plum Tomatoes",amount:190,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:30,unit:"g"},{name:"Basil Pesto",amount:45,unit:"g"},{name:"Ciabatta",amount:3,unit:""}],
+      "4P":[{name:"Courgette",amount:2,unit:""},{name:"Garlic Clove",amount:4,unit:"cloves"},{name:"Butter Beans",amount:2,unit:"cartons"},{name:"Tomato Puree",amount:60,unit:"g"},{name:"Red Wine Stock Paste",amount:56,unit:"g"},{name:"Mixed Herbs",amount:2,unit:"sachets"},{name:"Baby Plum Tomatoes",amount:250,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:40,unit:"g"},{name:"Basil Pesto",amount:60,unit:"g"},{name:"Ciabatta",amount:4,unit:""}],
+      pantry:{"2P":[{name:"Sugar",amount:1,unit:"tsp"},{name:"Water for Sauce",amount:250,unit:"ml"},{name:"Butter",amount:20,unit:"g"}],"3P":[{name:"Sugar",amount:1.5,unit:"tsp"},{name:"Water for Sauce",amount:375,unit:"ml"},{name:"Butter",amount:30,unit:"g"}],"4P":[{name:"Sugar",amount:2,unit:"tsp"},{name:"Water for Sauce",amount:500,unit:"ml"},{name:"Butter",amount:40,unit:"g"}]}
+    },
+    steps:[{n:1,title:"Get Prepped",text:"Preheat oven to 220°C. Slice courgette into 1cm rounds, drizzle with oil, season. Bake 18-20 mins."},{n:2,title:"Build the Flavour",text:"Grate garlic. Drain and rinse butter beans. Fry garlic and tomato puree in oil until fragrant, 1 min."},{n:3,title:"Sauce Time",text:"Add red wine stock paste, mixed herbs, sugar and water. Bring to boil, add butter beans and tomatoes. Simmer 15-17 mins."},{n:4,title:"Toast the Ciabatta",text:"Halve and toast ciabatta until golden. Drizzle with oil, cut into triangles."},{n:5,title:"Final Touches",text:"Stir butter through cassoulet. Add roasted courgette. Taste and season."},{n:6,title:"Serve Up",text:"Share cassoulet between bowls. Sprinkle over cheese and drizzle over pesto. Serve ciabatta alongside."}]
+  },
+  {
+    id:4, img:"images/burrito-bowl.jpg",
+    name:"Vibrant Veggie Burrito Bowl",
+    subtitle:"with Charred Corn Salsa, Chipotle Black Beans and Sweet Potato",
+    tags:["Calorie Smart","Medium Spice","Veggie"], time:"30-35 mins", maxTime:35,
+    highProtein:false, lowCal:false, highFibre:true, lowCarb:false,
+    ingredients:{
+      "2P":[{name:"Sweet Potato",amount:1,unit:""},{name:"Roasted Spice and Herb Blend",amount:1,unit:"sachet"},{name:"Basmati Rice",amount:100,unit:"g"},{name:"Sweetcorn",amount:140,unit:"g"},{name:"Garlic Clove",amount:1,unit:"clove"},{name:"Black Beans",amount:1,unit:"carton"},{name:"Lime",amount:1,unit:""},{name:"Intense Tomato",amount:1,unit:""},{name:"Chipotle Paste",amount:20,unit:"g"},{name:"Vegetable Stock Paste",amount:1,unit:"sachet"},{name:"Soured Cream",amount:75,unit:"g"}],
+      "3P":[{name:"Sweet Potato",amount:1,unit:""},{name:"Roasted Spice and Herb Blend",amount:1,unit:"sachet"},{name:"Basmati Rice",amount:150,unit:"g"},{name:"Sweetcorn",amount:340,unit:"g"},{name:"Garlic Clove",amount:1,unit:"clove"},{name:"Black Beans",amount:1.5,unit:"cartons"},{name:"Lime",amount:1,unit:""},{name:"Intense Tomato",amount:1.5,unit:""},{name:"Chipotle Paste",amount:30,unit:"g"},{name:"Vegetable Stock Paste",amount:1.5,unit:"sachets"},{name:"Soured Cream",amount:120,unit:"g"}],
+      "4P":[{name:"Sweet Potato",amount:2,unit:""},{name:"Roasted Spice and Herb Blend",amount:2,unit:"sachets"},{name:"Basmati Rice",amount:200,unit:"g"},{name:"Sweetcorn",amount:340,unit:"g"},{name:"Garlic Clove",amount:1.5,unit:"cloves"},{name:"Black Beans",amount:2,unit:"cartons"},{name:"Lime",amount:1,unit:""},{name:"Intense Tomato",amount:2,unit:""},{name:"Chipotle Paste",amount:40,unit:"g"},{name:"Vegetable Stock Paste",amount:2,unit:"sachets"},{name:"Soured Cream",amount:150,unit:"g"}],
+      pantry:{"2P":[{name:"Water for Rice",amount:200,unit:"ml"},{name:"Water for Beans",amount:150,unit:"ml"},{name:"Butter",amount:15,unit:"g"},{name:"Sugar",amount:0.5,unit:"tsp"},{name:"Olive Oil",amount:1,unit:"tbsp"}],"3P":[{name:"Water for Rice",amount:300,unit:"ml"},{name:"Water for Beans",amount:225,unit:"ml"},{name:"Butter",amount:22,unit:"g"},{name:"Sugar",amount:0.75,unit:"tsp"},{name:"Olive Oil",amount:1.5,unit:"tbsp"}],"4P":[{name:"Water for Rice",amount:400,unit:"ml"},{name:"Water for Beans",amount:300,unit:"ml"},{name:"Butter",amount:30,unit:"g"},{name:"Sugar",amount:1,unit:"tsp"},{name:"Olive Oil",amount:2,unit:"tbsp"}]}
+    },
+    steps:[{n:1,title:"Roast the Sweet Potato",text:"Preheat oven to 220°C. Chop sweet potato into 2cm chunks. Season with spice blend. Roast until golden, 25-35 mins."},{n:2,title:"Cook the Rice",text:"Bring water and rice to boil with ¼ tsp salt. Cover and cook 10 mins, then steam off heat 10 more mins."},{n:3,title:"Get Charring",text:"Drain sweetcorn. Fry in oil on high heat until charred, 5-6 mins, stirring only twice."},{n:4,title:"Time to Salsa",text:"Drain black beans. Zest and quarter lime. Cut tomato into 1cm chunks. Combine corn, tomatoes, sugar, olive oil and lime juice. Set aside."},{n:5,title:"Mash your Beans",text:"Fry garlic 1 min. Add black beans, mash half. Add chipotle, stock paste and water for beans. Simmer until thickened. Stir in butter."},{n:6,title:"Serve Up",text:"Stir lime zest through rice. Share between bowls. Top with beans, corn salsa and sweet potato. Drizzle over soured cream."}]
+  },
+  {
+    id:5, img:"images/girasoli.jpg",
+    name:"Arrabbiata Style Pumpkin and Sage Girasoli",
+    subtitle:"with Wild Rocket, Chilli Flakes and Cheese",
+    tags:["Calorie Smart","Medium Spice","Veggie"], time:"15 mins", maxTime:15,
+    highProtein:false, lowCal:false, highFibre:false, lowCarb:false,
+    ingredients:{
+      "2P":[{name:"Red Pepper",amount:1,unit:""},{name:"Pumpkin and Sage Girasoli",amount:300,unit:"g"},{name:"Tomato Passata",amount:1,unit:"carton"},{name:"Red Wine Stock Paste",amount:28,unit:"g"},{name:"Mixed Herbs",amount:1,unit:"sachet"},{name:"Chilli Flakes",amount:1,unit:"sachet"},{name:"Grated Hard Italian Style Cheese",amount:20,unit:"g"},{name:"Wild Rocket",amount:40,unit:"g"},{name:"Balsamic Glaze",amount:12,unit:"g"}],
+      "3P":[{name:"Red Pepper",amount:1,unit:""},{name:"Pumpkin and Sage Girasoli",amount:400,unit:"g"},{name:"Tomato Passata",amount:1.5,unit:"cartons"},{name:"Red Wine Stock Paste",amount:42,unit:"g"},{name:"Mixed Herbs",amount:1,unit:"sachet"},{name:"Chilli Flakes",amount:1,unit:"sachet"},{name:"Grated Hard Italian Style Cheese",amount:30,unit:"g"},{name:"Wild Rocket",amount:40,unit:"g"},{name:"Balsamic Glaze",amount:18,unit:"g"}],
+      "4P":[{name:"Red Pepper",amount:2,unit:""},{name:"Pumpkin and Sage Girasoli",amount:600,unit:"g"},{name:"Tomato Passata",amount:2,unit:"cartons"},{name:"Red Wine Stock Paste",amount:56,unit:"g"},{name:"Mixed Herbs",amount:2,unit:"sachets"},{name:"Chilli Flakes",amount:2,unit:"sachets"},{name:"Grated Hard Italian Style Cheese",amount:40,unit:"g"},{name:"Wild Rocket",amount:80,unit:"g"},{name:"Balsamic Glaze",amount:24,unit:"g"}],
+      pantry:{"2P":[{name:"Sugar",amount:1,unit:"tsp"},{name:"Butter",amount:20,unit:"g"},{name:"Water for Sauce",amount:50,unit:"ml"}],"3P":[{name:"Sugar",amount:1.5,unit:"tsp"},{name:"Butter",amount:30,unit:"g"},{name:"Water for Sauce",amount:75,unit:"ml"}],"4P":[{name:"Sugar",amount:2,unit:"tsp"},{name:"Butter",amount:40,unit:"g"},{name:"Water for Sauce",amount:100,unit:"ml"}]}
+    },
+    steps:[{n:1,title:"Get Frying",text:"Boil a kettle. Slice pepper into strips. Fry in oil on high heat 4-5 mins. Season."},{n:2,title:"Girasoli Time",text:"Pour boiled water into a pan with ½ tsp salt. Boil girasoli 3-5 mins. Drain, drizzle with oil."},{n:3,title:"Arrabbiata Sauce",text:"Add passata, stock paste, herbs, sugar, water and half the chilli flakes to the frying pan. Bring to boil 2-3 mins. Add pasta and toss. Stir in cheese and butter."},{n:4,title:"Dinner's Ready!",text:"Serve in bowls. Sprinkle remaining chilli flakes. Serve rocket alongside. Drizzle over balsamic glaze."}]
+  },
+  {
+    id:6, img:"images/mushroom-bourguignon.jpg",
+    name:"Hearty Double Mushroom Bourguignon",
+    subtitle:"with Cheesy Chive Mash",
+    tags:["Calorie Smart","Veggie"], time:"30-40 mins", maxTime:40,
+    highProtein:false, lowCal:true, highFibre:true, lowCarb:false,
+    ingredients:{
+      "2P":[{name:"Potatoes",amount:450,unit:"g"},{name:"Onion",amount:1,unit:""},{name:"Carrot",amount:1,unit:""},{name:"Garlic Clove",amount:2,unit:"cloves"},{name:"Mature Cheddar Cheese",amount:40,unit:"g"},{name:"Chives",amount:1,unit:"bunch"},{name:"Portobello Mushrooms",amount:2,unit:""},{name:"Closed Cup Mushrooms",amount:125,unit:"g"},{name:"Dried Thyme",amount:1,unit:"sachet"},{name:"Tomato Puree",amount:30,unit:"g"},{name:"Red Wine Stock Paste",amount:28,unit:"g"}],
+      "3P":[{name:"Potatoes",amount:700,unit:"g"},{name:"Onion",amount:1,unit:""},{name:"Carrot",amount:1.5,unit:""},{name:"Garlic Clove",amount:3,unit:"cloves"},{name:"Mature Cheddar Cheese",amount:60,unit:"g"},{name:"Chives",amount:1,unit:"bunch"},{name:"Portobello Mushrooms",amount:3,unit:""},{name:"Closed Cup Mushrooms",amount:250,unit:"g"},{name:"Dried Thyme",amount:1.5,unit:"sachets"},{name:"Tomato Puree",amount:45,unit:"g"},{name:"Red Wine Stock Paste",amount:42,unit:"g"}],
+      "4P":[{name:"Potatoes",amount:900,unit:"g"},{name:"Onion",amount:2,unit:""},{name:"Carrot",amount:2,unit:""},{name:"Garlic Clove",amount:4,unit:"cloves"},{name:"Mature Cheddar Cheese",amount:80,unit:"g"},{name:"Chives",amount:2,unit:"bunches"},{name:"Portobello Mushrooms",amount:4,unit:""},{name:"Closed Cup Mushrooms",amount:250,unit:"g"},{name:"Dried Thyme",amount:2,unit:"sachets"},{name:"Tomato Puree",amount:60,unit:"g"},{name:"Red Wine Stock Paste",amount:56,unit:"g"}],
+      pantry:{"2P":[{name:"Sugar",amount:1,unit:"tsp"},{name:"Water for Sauce",amount:150,unit:"ml"},{name:"Butter",amount:20,unit:"g"},{name:"Plain Flour",amount:1,unit:"tbsp"},{name:"Milk",amount:50,unit:"ml"}],"3P":[{name:"Sugar",amount:1.5,unit:"tsp"},{name:"Water for Sauce",amount:225,unit:"ml"},{name:"Butter",amount:30,unit:"g"},{name:"Plain Flour",amount:1.5,unit:"tbsp"},{name:"Milk",amount:75,unit:"ml"}],"4P":[{name:"Sugar",amount:2,unit:"tsp"},{name:"Water for Sauce",amount:300,unit:"ml"},{name:"Butter",amount:40,unit:"g"},{name:"Plain Flour",amount:2,unit:"tbsp"},{name:"Milk",amount:100,unit:"ml"}]}
+    },
+    steps:[{n:1,title:"Start the Potatoes",text:"Bring salted water to boil. Chop potatoes into 2cm chunks. Cook until tender, 15-20 mins."},{n:2,title:"Bring on the Veg",text:"Chop onion. Slice carrot into 1cm rounds. Fry on high heat until tender, 10-12 mins."},{n:3,title:"Finish the Prep",text:"Grate garlic. Grate Cheddar. Chop chives. Thinly slice portobello and closed cup mushrooms."},{n:4,title:"Simmer your Bourguignon",text:"Add mushrooms and fry 2-3 mins. Add garlic, thyme, tomato puree, butter and flour. Fry 1-2 mins. Add stock paste, sugar and water. Simmer until thickened, 3-4 mins."},{n:5,title:"Make your Mash",text:"Drain potatoes. Add cheese, butter and a splash of milk. Mash until smooth. Season and stir through half the chives."},{n:6,title:"Serve Up",text:"Share mash between bowls. Top with bourguignon. Sprinkle over remaining chives. Enjoy!"}]
+  },
+  {
+    id:7, img:"images/halloumi-steaks.jpg",
+    name:"Spiced Halloumi Steaks and Hot Honey Sauce",
+    subtitle:"with Potato Wedges and Baby Leaf Salad",
+    tags:["Veggie"], time:"30-35 mins", maxTime:35,
+    highProtein:true, lowCal:false, highFibre:false, lowCarb:false,
+    ingredients:{
+      "2P":[{name:"Halloumi",amount:225,unit:"g"},{name:"Potatoes",amount:450,unit:"g"},{name:"Cider Vinegar",amount:15,unit:"ml"},{name:"Baby Plum Tomatoes",amount:125,unit:"g"},{name:"Central American Style Spice Mix",amount:1,unit:"sachet"},{name:"Hot Sauce",amount:30,unit:"g"},{name:"Honey",amount:15,unit:"g"},{name:"Baby Leaf Mix",amount:50,unit:"g"}],
+      "3P":[{name:"Halloumi",amount:337,unit:"g"},{name:"Potatoes",amount:700,unit:"g"},{name:"Cider Vinegar",amount:22.5,unit:"ml"},{name:"Baby Plum Tomatoes",amount:190,unit:"g"},{name:"Central American Style Spice Mix",amount:1,unit:"sachet"},{name:"Hot Sauce",amount:50,unit:"g"},{name:"Honey",amount:22.5,unit:"g"},{name:"Baby Leaf Mix",amount:70,unit:"g"}],
+      "4P":[{name:"Halloumi",amount:450,unit:"g"},{name:"Potatoes",amount:900,unit:"g"},{name:"Cider Vinegar",amount:30,unit:"ml"},{name:"Baby Plum Tomatoes",amount:250,unit:"g"},{name:"Central American Style Spice Mix",amount:2,unit:"sachets"},{name:"Hot Sauce",amount:60,unit:"g"},{name:"Honey",amount:30,unit:"g"},{name:"Baby Leaf Mix",amount:100,unit:"g"}],
+      pantry:{"2P":[{name:"Sugar for Dressing",amount:1,unit:"tsp"},{name:"Olive Oil for Dressing",amount:1,unit:"tbsp"},{name:"Butter",amount:30,unit:"g"},{name:"Mayonnaise",amount:1.5,unit:"tbsp"}],"3P":[{name:"Sugar for Dressing",amount:1.5,unit:"tsp"},{name:"Olive Oil for Dressing",amount:1.5,unit:"tbsp"},{name:"Butter",amount:45,unit:"g"},{name:"Mayonnaise",amount:2,unit:"tbsp"}],"4P":[{name:"Sugar for Dressing",amount:2,unit:"tsp"},{name:"Olive Oil for Dressing",amount:2,unit:"tbsp"},{name:"Butter",amount:60,unit:"g"},{name:"Mayonnaise",amount:3,unit:"tbsp"}]}
+    },
+    steps:[{n:1,title:"Get Prepped",text:"Preheat oven to 220°C. Drain halloumi, cut in half lengthways. Place in a bowl with spice mix and leave to soak."},{n:2,title:"Cook the Wedges",text:"Chop potatoes into 2cm wedges. Drizzle with oil, season, toss. Roast until golden, 25-35 mins. Turn halfway."},{n:3,title:"Get Dressed",text:"Combine cider vinegar, sugar and olive oil for dressing. Halve tomatoes and add to dressing. Season and set aside."},{n:4,title:"Halloumi Time",text:"Pat halloumi dry, sprinkle with spice mix. Fry in oil until golden, 2-3 mins each side. Bake on middle shelf 5-6 mins."},{n:5,title:"Make the Sauce",text:"Add hot sauce, honey and butter to empty pan. Stir until melted and piping hot, 1-2 mins."},{n:6,title:"Finish and Serve",text:"Toss baby leaves into tomato bowl. Plate halloumi, spoon over hot honey sauce. Serve with wedges, salad and mayo."}]
+  },
+  {
+    id:9, img:"images/cottage-pie.jpg",
+    name:"Anushka's Dauphinoise Topped Cottage Pie",
+    subtitle:"with Beef, Carrot and Italian Style Cheese",
+    tags:["Family Friendly"], time:"40-45 mins", maxTime:45,
+    highProtein:false, lowCal:false, highFibre:false, lowCarb:false,
+    ingredients:{
+      "2P":[{name:"Carrot",amount:1,unit:""},{name:"Garlic Clove",amount:3,unit:"cloves"},{name:"Potatoes",amount:450,unit:"g"},{name:"British Beef Mince",amount:240,unit:"g"},{name:"Tomato Passata",amount:1,unit:"carton"},{name:"Red Wine Stock Paste",amount:28,unit:"g"},{name:"Creme Fraiche",amount:150,unit:"g"},{name:"Chicken Stock Paste",amount:10,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:20,unit:"g"},{name:"Chives",amount:1,unit:"bunch"}],
+      "3P":[{name:"Carrot",amount:1.5,unit:""},{name:"Garlic Clove",amount:4,unit:"cloves"},{name:"Potatoes",amount:700,unit:"g"},{name:"British Beef Mince",amount:360,unit:"g"},{name:"Tomato Passata",amount:1.5,unit:"cartons"},{name:"Red Wine Stock Paste",amount:42,unit:"g"},{name:"Creme Fraiche",amount:225,unit:"g"},{name:"Chicken Stock Paste",amount:15,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:40,unit:"g"},{name:"Chives",amount:1,unit:"bunch"}],
+      "4P":[{name:"Carrot",amount:2,unit:""},{name:"Garlic Clove",amount:6,unit:"cloves"},{name:"Potatoes",amount:900,unit:"g"},{name:"British Beef Mince",amount:480,unit:"g"},{name:"Tomato Passata",amount:2,unit:"cartons"},{name:"Red Wine Stock Paste",amount:56,unit:"g"},{name:"Creme Fraiche",amount:300,unit:"g"},{name:"Chicken Stock Paste",amount:20,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:40,unit:"g"},{name:"Chives",amount:1,unit:"bunch"}],
+      pantry:{"2P":[{name:"Sugar",amount:0.5,unit:"tsp"},{name:"Water for Sauce",amount:50,unit:"ml"}],"3P":[{name:"Sugar",amount:0.75,unit:"tsp"},{name:"Water for Sauce",amount:75,unit:"ml"}],"4P":[{name:"Sugar",amount:1,unit:"tsp"},{name:"Water for Sauce",amount:100,unit:"ml"}]}
+    },
+    steps:[{n:1,title:"Get Prepped",text:"Preheat oven to 220°C/200°C fan/gas mark 7. Bring a large saucepan of water with ½ tsp salt to the boil for the potatoes. Meanwhile, ½cm the carrot, then quarter lengthways. Cut into pieces about 1cm thick. Peel and grate the garlic. Peel and slice the potatoes into 1cm thick rounds."},{n:2,title:"Fry the Beef and Carrot",text:"Once boiling, add the potato slices to the water and simmer until just tender, 8-12 mins. Meanwhile, heat a drizzle of oil in a large frying pan on medium-high heat. Once hot, add the beef mince and carrot and fry, breaking up as it cooks, 5-6 mins. Drain and discard any excess fat. Season with salt and pepper."},{n:3,title:"Simmer the Filling",text:"Add half the garlic to the mince and cook for 1 min. Stir in the passata, red wine stock paste and sugar (see pantry for both amounts). Lower the heat and simmer until thickened, 4-5 mins."},{n:4,title:"Make the Creamy Sauce",text:"Drain the potatoes in a colander. Wipe out the saucepan and return to medium heat with a drizzle of oil. Once hot, add the remaining garlic and cook until fragrant, 30 secs. Stir in the creme fraiche, chicken stock paste and water for the sauce (see pantry for amount). Bring to the boil, then remove from heat. Season with salt and pepper."},{n:5,title:"Make your Dauphinoise Pie",text:"Spoon the beef mixture into an ovenproof dish. Lay the cooked potato slices in layers over the top, then pour over the creamy sauce. Sprinkle over the hard Italian style cheese. Bake on top shelf until golden brown and bubbly, 15-20 mins."},{n:6,title:"Serve",text:"Share the dauphinoise cottage pie between your plates and sprinkle over the chives to finish. Enjoy!"}]
+  },
+  {
+    id:8, img:"images/aubergine-parmigiana.jpg",
+    name:"Aubergine Parmigiana Style Traybake",
+    subtitle:"with Roasted Potatoes and Baby Leaves",
+    tags:["Calorie Smart","Prepped in 10","Veggie"], time:"30-35 mins", maxTime:35,
+    highProtein:false, lowCal:true, highFibre:true, lowCarb:false,
+    ingredients:{
+      "2P":[{name:"Potatoes",amount:450,unit:"g"},{name:"Aubergine",amount:2,unit:""},{name:"Mixed Herbs",amount:1,unit:"sachet"},{name:"Marinara Sauce",amount:120,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:60,unit:"g"},{name:"Baby Leaf Mix",amount:40,unit:"g"},{name:"Balsamic Glaze",amount:12,unit:"g"}],
+      "3P":[{name:"Potatoes",amount:700,unit:"g"},{name:"Aubergine",amount:3,unit:""},{name:"Mixed Herbs",amount:1,unit:"sachet"},{name:"Marinara Sauce",amount:180,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:80,unit:"g"},{name:"Baby Leaf Mix",amount:70,unit:"g"},{name:"Balsamic Glaze",amount:18,unit:"g"}],
+      "4P":[{name:"Potatoes",amount:900,unit:"g"},{name:"Aubergine",amount:4,unit:""},{name:"Mixed Herbs",amount:2,unit:"sachets"},{name:"Marinara Sauce",amount:240,unit:"g"},{name:"Grated Hard Italian Style Cheese",amount:120,unit:"g"},{name:"Baby Leaf Mix",amount:100,unit:"g"},{name:"Balsamic Glaze",amount:24,unit:"g"}],
+      pantry:{"2P":[{name:"Honey",amount:1,unit:"tsp"},{name:"Mayonnaise",amount:2,unit:"tbsp"}],"3P":[{name:"Honey",amount:1.5,unit:"tsp"},{name:"Mayonnaise",amount:3,unit:"tbsp"}],"4P":[{name:"Honey",amount:2,unit:"tsp"},{name:"Mayonnaise",amount:4,unit:"tbsp"}]}
+    },
+    steps:[{n:1,title:"Prep the Potatoes",text:"Preheat oven to 220°C. Chop potatoes into 2cm chunks."},{n:2,title:"Get Roasting",text:"Drizzle potatoes with oil, season, toss. Roast on top shelf until golden, 25-35 mins. Turn halfway."},{n:3,title:"Aubergine Time",text:"Slice aubergine into 1cm rounds. Drizzle with oil, sprinkle with mixed herbs, season, toss. Roast on middle shelf 20-25 mins. Turn halfway."},{n:4,title:"Mix the Marinara Sauce",text:"Mix marinara sauce and honey in a small bowl."},{n:5,title:"Finishing Touches",text:"Pour marinara sauce over aubergine, sprinkle with cheese. Return to oven until cheese melts, 5-6 mins."},{n:6,title:"Serve Up",text:"Share aubergine parmigiana between plates. Add roasted potatoes and baby leaves. Drizzle balsamic glaze over leaves. Serve with mayo. Enjoy!"}]
+  },
+];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const state = {
+  plan: {},
+  filters: { tags:[], time:'all', nutrition:[], history:'all', search:'' },
+  filtersOpen: false,
+};
+let editingId = null;
+
+// ─── Persistence helpers ──────────────────────────────────────────────────────
+function ls(key, def) {
+  try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : def; }
+  catch(e) { return def; }
+}
+function lsRaw(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {} }
+function lsSave(key, val) { lsRaw(key, val); scheduleSaveToCloud(); }
+
+function getCounts() { return ls('recipeCookCounts', {}); }
+function getCount(id) { return getCounts()[id] || 0; }
+function incrementCount(id) { const c = getCounts(); c[id] = (c[id]||0)+1; lsSave('recipeCookCounts', c); }
+
+function getArchived() { return new Set(ls('archivedRecipes', [])); }
+function setArchived(set) { lsSave('archivedRecipes', [...set]); }
+function isArchived(id) { return getArchived().has(id); }
+
+function getCustomRecipes() { return ls('customRecipes', []); }
+function saveCustomRecipes(arr) { lsSave('customRecipes', arr); }
+
+function savePlan() { lsSave('weeklyPlan', state.plan); }
+
+function getOverrides() { return ls('recipeOverrides', {}); }
+function saveOverrides(o) { lsSave('recipeOverrides', o); }
+
+function getAllRecipes() {
+  const ov = getOverrides();
+  const builtins = BUILTIN_RECIPES.map(r => ov[r.id] ? { ...r, ...ov[r.id] } : r);
+  return [...builtins, ...getCustomRecipes()];
+}
+
+// ─── Tag helpers ──────────────────────────────────────────────────────────────
+function tagClass(t) {
+  return {"Calorie Smart":"calorie-smart","Veggie":"veggie","Pescatarian":"pescatarian","Medium Spice":"medium-spice","Family Friendly":"family-friendly","Prepped in 10":"prepped-in-10"}[t]||"veggie";
+}
+
+// ─── Filters ──────────────────────────────────────────────────────────────────
+function onSearchInput() {
+  state.filters.search = document.getElementById('search-input').value.trim().toLowerCase();
+  updateFilterCount(); renderRecipes();
+}
+
+function toggleFilters() {
+  state.filtersOpen = !state.filtersOpen;
+  document.getElementById('filter-body').style.display = state.filtersOpen ? 'block' : 'none';
+  document.getElementById('filter-toggle-icon').classList.toggle('open', state.filtersOpen);
+}
+
+function toggleTagFilter(tag, btn) {
+  const parent = btn.parentElement;
+  const allBtn = parent.querySelector('.chip');
+  if (tag === 'all') {
+    state.filters.tags = [];
+    parent.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+  } else {
+    allBtn.classList.remove('active');
+    btn.classList.toggle('active');
+    state.filters.tags = [...parent.querySelectorAll('.chip.active')].map(c => c.textContent);
+    if (!state.filters.tags.length) allBtn.classList.add('active');
+  }
+  updateFilterCount(); renderRecipes();
+}
+
+function setTimeFilter(val, btn) {
+  state.filters.time = val;
+  btn.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  updateFilterCount(); renderRecipes();
+}
+
+function toggleNutritionFilter(btn) {
+  btn.classList.toggle('active');
+  state.filters.nutrition = [...btn.parentElement.querySelectorAll('.chip.active')].map(c => c.dataset.nk);
+  updateFilterCount(); renderRecipes();
+}
+
+function setHistoryFilter(val, btn) {
+  state.filters.history = val;
+  btn.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  btn.classList.add('active');
+  updateFilterCount(); renderRecipes();
+}
+
+function updateFilterCount() {
+  const n = (state.filters.tags.length?1:0)+(state.filters.time!=='all'?1:0)+state.filters.nutrition.length+(state.filters.history!=='all'?1:0)+(state.filters.search?1:0);
+  const el = document.getElementById('active-filter-count');
+  el.textContent = n; el.style.display = n ? 'inline' : 'none';
+}
+
+function clearAllFilters() {
+  state.filters = { tags:[], time:'all', nutrition:[], history:'all', search:'' };
+  document.getElementById('search-input').value = '';
+  document.getElementById('sort-select').value = 'default';
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  document.querySelector('[onclick="toggleTagFilter(\'all\',this)"]').classList.add('active');
+  document.querySelector('[onclick="setTimeFilter(\'all\',this)"]').classList.add('active');
+  document.querySelector('[onclick="setHistoryFilter(\'all\',this)"]').classList.add('active');
+  updateFilterCount(); renderRecipes();
+}
+
+function applyFilters(recipes) {
+  const { tags, time, nutrition, history, search } = state.filters;
+  const sort = document.getElementById('sort-select')?.value || 'default';
+  const counts = getCounts();
+  let list = recipes.filter(r => {
+    if (search && !`${r.name} ${r.subtitle}`.toLowerCase().includes(search)) return false;
+    if (tags.length && !tags.every(t => r.tags.includes(t))) return false;
+    if (time===20 && r.maxTime>20) return false;
+    if (time===35 && r.maxTime>35) return false;
+    if (time===99 && r.maxTime<=35) return false;
+    if (nutrition.includes('highProtein') && !r.highProtein) return false;
+    if (nutrition.includes('lowCal') && !r.lowCal) return false;
+    if (nutrition.includes('highFibre') && !r.highFibre) return false;
+    if (nutrition.includes('lowCarb') && !r.lowCarb) return false;
+    const c = counts[r.id]||0;
+    if (history==='never' && c>0) return false;
+    if (history==='tried' && c===0) return false;
+    if (history==='fave' && c<3) return false;
+    return true;
+  });
+  if (sort==='az') list.sort((a,b)=>a.name.localeCompare(b.name));
+  else if (sort==='quickest') list.sort((a,b)=>a.maxTime-b.maxTime);
+  else if (sort==='most-cooked') list.sort((a,b)=>(counts[b.id]||0)-(counts[a.id]||0));
+  else if (sort==='least-cooked') list.sort((a,b)=>(counts[a.id]||0)-(counts[b.id]||0));
+  return list;
+}
+
+// ─── Render Recipes ───────────────────────────────────────────────────────────
+function renderRecipes() {
+  const all = getAllRecipes();
+  const archived = getArchived();
+  const counts = getCounts();
+  const active = all.filter(r => !archived.has(r.id));
+  const archivedList = all.filter(r => archived.has(r.id));
+  const filtered = applyFilters(active);
+  const grid = document.getElementById('recipe-grid');
+  const planN = Object.keys(state.plan).length;
+
+  document.getElementById('results-label').textContent =
+    `Showing ${filtered.length}/${active.length}${archivedList.length ? ` · ${archivedList.length} archived` : ''}`;
+  document.getElementById('plan-count-label').textContent = planN > 0 ? `${planN} meal${planN!==1?'s':''} in plan` : '';
+  const shopBtn = document.getElementById('shop-now-btn');
+  shopBtn.classList.toggle('visible', planN > 0);
+  document.getElementById('clear-plan-btn').classList.toggle('visible', planN > 0);
+
+  function cardHTML(r, isArch) {
+    const inPlan = !!state.plan[r.id];
+    const count = counts[r.id] || 0;
+    const isCustom = r.id >= 1000;
+    const nutrTags = [r.highProtein?'💪 High Protein':null, r.lowCal?'🥗 Low Cal':null, r.highFibre?'🌿 High Fibre':null].filter(Boolean);
+    const imgContent = r.img
+      ? `<img class="card-img" src="${r.img}" alt="${r.name}" loading="lazy">`
+      : `<div class="no-img-placeholder">🍽</div>`;
+    const footerActions = isArch
+      ? `<button class="icon-btn restore-btn" onclick="event.stopPropagation();restoreRecipe(${r.id})">↩ Restore</button>`
+      : `<button class="icon-btn steps-btn" onclick="event.stopPropagation();openStepsModal(${r.id})" title="View steps">👨‍🍳</button>
+         <button class="icon-btn edit-btn" onclick="event.stopPropagation();openEditModal(${r.id})" title="Edit recipe">✏️</button>
+         <button class="icon-btn archive-btn" onclick="event.stopPropagation();archiveRecipe(${r.id})" title="Archive">🗃</button>
+         ${count > 0 ? `<span class="cook-record">COOKED: ${count}</span>` : ''}`;
+    return `
+    <div class="recipe-card ${inPlan&&!isArch?'in-plan':''} ${isArch?'archived-card':''}" onclick="${isArch?'':'togglePlan('+r.id+')'}">
+      ${inPlan&&!isArch?'<div class="plan-badge">✓</div>':''}
+      ${isCustom?'<div class="custom-badge">Custom</div>':''}
+      <div class="card-img-wrap">${imgContent}</div>
+      <div class="card-body">
+        <div class="card-tags">
+          ${r.tags.map(t=>`<span class="tag ${tagClass(t)}">${t}</span>`).join('')}
+          ${nutrTags.map(t=>`<span class="tag" style="background:#fff8e1;color:#f57f17">${t}</span>`).join('')}
+        </div>
+        <h3>${r.name}</h3>
+        <p>${r.subtitle||''}</p>
+      </div>
+      <div class="card-footer">
+        <span class="card-time">⏱ ${r.time}</span>
+        <div class="card-actions">${footerActions}</div>
+      </div>
+    </div>`;
+  }
+
+  let html = '';
+  if (filtered.length === 0 && archivedList.length === 0) {
+    html = '<div class="no-results">No recipes match these filters.<br><br><button class="chip" onclick="clearAllFilters()">Clear filters</button></div>';
+  } else {
+    if (filtered.length === 0) {
+      html = '<div class="no-results" style="grid-column:1/-1">No active recipes match these filters.</div>';
+    } else {
+      html = filtered.map(r => cardHTML(r, false)).join('');
+    }
+    if (archivedList.length > 0) {
+      html += `<div class="archived-divider">Archived recipes</div>`;
+      html += archivedList.map(r => cardHTML(r, true)).join('');
+    }
+  }
+  grid.innerHTML = html;
+  updateNavBadges();
+}
+
+function clearPlan() { state.plan = {}; savePlan(); renderRecipes(); }
+
+function togglePlan(id) {
+  if (state.plan[id]) delete state.plan[id]; else state.plan[id] = '2P';
+  savePlan(); renderRecipes();
+}
+
+function archiveRecipe(id) {
+  const s = getArchived(); s.add(id); setArchived(s);
+  if (state.plan[id]) { delete state.plan[id]; savePlan(); }
+  renderRecipes();
+}
+
+function archiveFromPlan(id) {
+  const s = getArchived(); s.add(id); setArchived(s);
+  renderPlan(); renderRecipes();
+}
+
+function restoreRecipe(id) {
+  const s = getArchived(); s.delete(id); setArchived(s);
+  renderRecipes();
+}
+
+// ─── Weekly Plan ──────────────────────────────────────────────────────────────
+function renderPlan() {
+  const container = document.getElementById('plan-content');
+  const ids = Object.keys(state.plan);
+  const all = getAllRecipes();
+  if (!ids.length) {
+    container.innerHTML = `<div class="plan-empty"><h2>No meals selected</h2><p>Go to Recipes and click cards to add meals.</p></div>`;
+    return;
+  }
+  const items = ids.map(id => {
+    const r = all.find(x => x.id==id);
+    if (!r) return '';
+    const s = state.plan[id];
+    return `<div class="selected-item">
+      <button class="remove-btn" onclick="removeMeal(${id})" title="Remove">×</button>
+      <div class="item-body">
+        <div class="item-info"><h3>${r.name}</h3><p>${r.time} · ${r.tags.join(', ')}</p></div>
+        <div class="item-actions">
+          <div class="item-serves">
+            <div class="serving-picker">
+              <label>Serves</label>
+              <select onchange="changeServing(${id},this.value)">
+                <option value="2P" ${s==='2P'?'selected':''}>2</option>
+                <option value="3P" ${s==='3P'?'selected':''}>3</option>
+                <option value="4P" ${s==='4P'?'selected':''}>4</option>
+              </select>
+            </div>
+          </div>
+          <div class="item-btns">
+            <button class="icon-btn steps-btn" onclick="openStepsModal(${id})" title="View steps">👨‍🍳</button>
+            <button class="icon-btn edit-btn" onclick="openEditModal(${id})" title="Edit recipe">✏️</button>
+            <button class="icon-btn archive-btn" onclick="archiveFromPlan(${id})" title="Archive">🗃</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="plan-header"><h2>${ids.length} meal${ids.length!==1?'s':''} this week</h2></div>
+    <div class="selected-list">${items}</div>
+    <div class="plan-actions">
+      <button class="btn-primary" onclick="goToShoppingList()">🛒 Generate Shopping List</button>
+      <button class="btn-cooked" onclick="markWeekCooked()">✅ Mark Week as COOKED</button>
+      <div class="toast green" id="cooked-toast"></div>
+    </div>`;
+}
+
+function changeServing(id, val) { state.plan[id] = val; savePlan(); }
+function removeMeal(id) { delete state.plan[id]; savePlan(); renderPlan(); renderRecipes(); }
+
+function markWeekCooked(toastId = 'cooked-toast') {
+  const ids = Object.keys(state.plan);
+  if (!ids.length) return;
+  if (!confirm('Mark this week as cooked?\n\nThis will permanently add to the cook count for each meal and cannot be undone.')) return;
+  ids.forEach(id => incrementCount(id));
+  const all = getAllRecipes();
+  const names = ids.map(id => (all.find(r=>r.id==id)||{name:'Recipe'}).name.split(' ').slice(0,3).join(' '));
+  const toast = document.getElementById(toastId);
+  toast.textContent = `🍴 Logged: ${names.join(', ')}`;
+  toast.classList.add('visible');
+  setTimeout(() => toast.classList.remove('visible'), 5000);
+  renderRecipes();
+}
+
+function openSainsburys(type) {
+  const links = document.querySelectorAll(`#shop-content .sainsburys-${type}`);
+  links.forEach(a => window.open(a.href, '_blank'));
+}
+
+function goToShoppingList() { buildShoppingList(); showPage('shop', document.getElementById('nav-shop')); }
+
+// ─── Shopping List ────────────────────────────────────────────────────────────
+function buildShoppingList() {
+  const ids = Object.keys(state.plan);
+  const all = getAllRecipes();
+  const fresh = {}, pantry = {};
+  const unitNorm = { 'carton':'tin','cartons':'tin','clove':'cloves','bunch':'bunches','sachet':'sachets' };
+  function normaliseUnit(u) { return unitNorm[u] || u || ''; }
+  function addIng(store, ing) {
+    const k = ing.name.toLowerCase();
+    if (!store[k]) store[k] = { name: ing.name, units: {} };
+    const u = normaliseUnit(ing.unit);
+    store[k].units[u] = Math.round(((store[k].units[u] || 0) + ing.amount) * 10) / 10;
+  }
+  ids.forEach(id => {
+    const r = all.find(x => x.id==id);
+    if (!r) return;
+    const s = state.plan[id];
+    (r.ingredients[s]||[]).forEach(ing => addIng(fresh, ing));
+    (r.ingredients.pantry?.[s]||[]).forEach(ing => addIng(pantry, ing));
+  });
+
+  const mealNames = ids.map(id => (all.find(r=>r.id==id)||{name:'?'}).name);
+  const sf = Object.values(fresh).sort((a,b)=>a.name.localeCompare(b.name));
+  const sp = Object.values(pantry).sort((a,b)=>a.name.localeCompare(b.name));
+
+  function fmt(item) {
+    return Object.entries(item.units).map(([unit, amount]) => {
+      if (!unit) return `${amount}`;
+      if (unit==='g'||unit==='ml') return `${amount}${unit}`;
+      return `${amount} ${unit}`;
+    }).join(' and ');
+  }
+  const searchOverrides = {
+    'pumpkin and sage girasoli': 'pumpkin and sage girasoli pasta',
+    'intense tomato':            'vine tomato',
+    'central american style spice mix': 'mexican spice mix',
+    'white wine stock powder':   'small white wine bottle',
+    'red wine stock paste':      'red wine stock',
+    'vegetable stock paste':     'vegetable stock',
+    'chicken stock paste':       'chicken stock',
+    'white wine stock paste':    'small white wine bottle',
+  };
+  function sainsburysSearch(name) {
+    return searchOverrides[name.toLowerCase()] || name;
+  }
+  function rows(items, type) {
+    return `<div class="shopping-grid">${items.map(item =>
+      `<div class="shopping-item"><span class="item-amount">(${fmt(item)})</span><span class="item-sep"> </span><span class="item-name">${item.name}</span><a class="sainsburys-link sainsburys-${type}" href="https://www.sainsburys.co.uk/groceries/search?searchTerm=${encodeURIComponent(sainsburysSearch(item.name))}" target="_blank" rel="noopener">🛒</a></div>`
+    ).join('')}</div>`;
+  }
+
+  const content = document.getElementById('shop-content');
+  if (!ids.length) {
+    content.innerHTML = '<div class="empty-list">Select meals in your Weekly Plan first.</div>';
+    return;
+  }
+  content.innerHTML = `
+    <div class="list-header">
+      <h2>Shopping List · ${ids.length} meal${ids.length!==1?'s':''}</h2>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button class="print-btn" onclick="openSainsburys('fresh')">🛒 Open Fresh</button>
+        <button class="print-btn" onclick="openSainsburys('pantry')">🛒 Open Pantry</button>
+        <button class="print-btn" onclick="window.print()">🖨 Print</button>
+      </div>
+    </div>
+    <div class="meal-summary"><strong>Meals this week:</strong> ${mealNames.join(' · ')}</div>
+    <div class="shopping-section section-fresh"><h3>Fresh Ingredients</h3>${rows(sf, 'fresh')}</div>
+    ${sp.length?`<div class="shopping-section section-pantry"><h3>Pantry — check you have these</h3>${rows(sp, 'pantry')}</div>`:''}
+    <div class="plan-actions" style="margin-top:1rem">
+      <button class="btn-cooked" onclick="markWeekCooked('cooked-toast-shop')">✅ Mark Week as COOKED</button>
+      <div class="toast green" id="cooked-toast-shop"></div>
+    </div>`;
+}
+
+// ─── Add/Edit Recipe Modal ────────────────────────────────────────────────────
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modal-title').textContent = 'Add Recipe';
+  resetForm();
+  document.getElementById('count-field').style.display = 'none';
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function openEditModal(id) {
+  document.getElementById('modal-title').textContent = 'Edit Recipe';
+  resetForm();
+  editingId = id;
+  const recipe = getAllRecipes().find(r => r.id == id);
+  if (recipe) prefillForm(recipe);
+  document.getElementById('count-field').style.display = '';
+  document.getElementById('f-count').value = getCounts()[id] || 0;
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function closeAddModal() { document.getElementById('add-modal').classList.remove('open'); resetForm(); }
+function closeModalIfOverlay(e) { if (e.target === e.currentTarget) closeAddModal(); }
+
+function resetForm() {
+  editingId = null;
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-time').value = '';
+  document.getElementById('f-subtitle').value = '';
+  document.getElementById('f-img').value = '';
+  document.querySelectorAll('.tag-checkboxes input[type=checkbox]').forEach(c => c.checked = false);
+  document.getElementById('modal-error').style.display = 'none';
+  document.getElementById('ingredient-rows').innerHTML = '';
+  document.getElementById('pantry-rows').innerHTML = '';
+  document.getElementById('steps-rows').innerHTML = '';
+  addIngRow('ingredient-rows');
+  addIngRow('pantry-rows');
+}
+
+function addIngRow(containerId, name='', unit='', amt2='', amt3='', amt4='') {
+  const row = document.createElement('div');
+  row.className = 'ingredient-row';
+  row.innerHTML =
+    `<input class="ing-name" type="text" placeholder="Ingredient" value="${name}">` +
+    `<input class="ing-unit" type="text" placeholder="g" value="${unit}">` +
+    `<input class="ing-2p" type="number" placeholder="2P" value="${amt2}">` +
+    `<input class="ing-3p" type="number" placeholder="3P" value="${amt3}">` +
+    `<input class="ing-4p" type="number" placeholder="4P" value="${amt4}">` +
+    `<button class="del-row" onclick="delIngRow(this)">×</button>`;
+  document.getElementById(containerId).appendChild(row);
+}
+
+function addFreshRow() { addIngRow('ingredient-rows'); }
+function addPantryRow() { addIngRow('pantry-rows'); }
+
+function addStepRow(title='', text='') {
+  const container = document.getElementById('steps-rows');
+  const n = container.children.length + 1;
+  const row = document.createElement('div');
+  row.className = 'step-row';
+  row.innerHTML =
+    `<span class="step-num">${n}.</span>` +
+    `<input class="step-title" type="text" placeholder="Title (optional)" value="${title.replace(/"/g,'&quot;')}">` +
+    `<textarea class="step-text" placeholder="Instructions...">${text}</textarea>` +
+    `<button class="del-row" onclick="delStepRow(this)">×</button>`;
+  container.appendChild(row);
+}
+
+function delStepRow(btn) {
+  btn.closest('.step-row').remove();
+  document.querySelectorAll('#steps-rows .step-num').forEach((el, i) => el.textContent = `${i+1}.`);
+}
+
+function parseSteps() {
+  const steps = [];
+  document.querySelectorAll('#steps-rows .step-row').forEach((row, i) => {
+    const title = row.querySelector('.step-title').value.trim();
+    const text = row.querySelector('.step-text').value.trim();
+    if (text) steps.push({ n: i+1, title, text });
+  });
+  return steps;
+}
+
+function delIngRow(btn) {
+  const container = btn.closest('.ingredient-rows');
+  if (container.children.length > 1) btn.closest('.ingredient-row').remove();
+}
+
+function prefillForm(recipe) {
+  document.getElementById('f-name').value = recipe.name || '';
+  document.getElementById('f-time').value = recipe.time || '';
+  document.getElementById('f-subtitle').value = recipe.subtitle || '';
+  document.getElementById('f-img').value = recipe.img || '';
+
+  document.querySelectorAll('.tag-checkboxes input[type=checkbox]').forEach(c => {
+    if (['Calorie Smart','Veggie','Pescatarian','Medium Spice','Family Friendly','Prepped in 10'].includes(c.value)) {
+      c.checked = !!(recipe.tags && recipe.tags.includes(c.value));
+    }
+  });
+  document.getElementById('f-hp').checked = !!recipe.highProtein;
+  document.getElementById('f-lc').checked = !!recipe.lowCal;
+  document.getElementById('f-hf').checked = !!recipe.highFibre;
+  document.getElementById('f-lb').checked = !!recipe.lowCarb;
+
+  function fillRows(containerId, p2, p3, p4) {
+    document.getElementById(containerId).innerHTML = '';
+    if (!p2 || !p2.length) { addIngRow(containerId); return; }
+    p2.forEach((ing, i) => {
+      addIngRow(containerId, ing.name, ing.unit, ing.amount, p3[i]?.amount ?? '', p4[i]?.amount ?? '');
+    });
+  }
+  fillRows('ingredient-rows', recipe.ingredients?.['2P'], recipe.ingredients?.['3P'], recipe.ingredients?.['4P']);
+  fillRows('pantry-rows', recipe.ingredients?.pantry?.['2P'], recipe.ingredients?.pantry?.['3P'], recipe.ingredients?.pantry?.['4P']);
+
+  document.getElementById('steps-rows').innerHTML = '';
+  (recipe.steps || []).forEach(s => addStepRow(s.title || '', s.text || ''));
+}
+
+function parseIngRows(containerId) {
+  const r2=[], r3=[], r4=[];
+  document.querySelectorAll(`#${containerId} .ingredient-row`).forEach(row => {
+    const n = row.querySelector('.ing-name').value.trim();
+    if (!n) return;
+    const u = row.querySelector('.ing-unit').value.trim();
+    const a2 = parseFloat(row.querySelector('.ing-2p').value) || 0;
+    const a3raw = row.querySelector('.ing-3p').value;
+    const a4raw = row.querySelector('.ing-4p').value;
+    const a3 = a3raw !== '' ? (parseFloat(a3raw)||0) : Math.round(a2*1.5*10)/10;
+    const a4 = a4raw !== '' ? (parseFloat(a4raw)||0) : Math.round(a2*2*10)/10;
+    r2.push({name:n,amount:a2,unit:u});
+    r3.push({name:n,amount:a3,unit:u});
+    r4.push({name:n,amount:a4,unit:u});
+  });
+  return {'2P':r2,'3P':r3,'4P':r4};
+}
+
+function saveRecipe() {
+  const name = document.getElementById('f-name').value.trim();
+  const time = document.getElementById('f-time').value.trim();
+  const errEl = document.getElementById('modal-error');
+  if (!name || !time) { errEl.textContent='Recipe name and cook time are required.'; errEl.style.display='block'; return; }
+
+  const subtitle = document.getElementById('f-subtitle').value.trim();
+  const imgInput = document.getElementById('f-img').value.trim();
+  const tags = [...document.querySelectorAll('.tag-checkboxes input[type=checkbox]:checked')].map(c=>c.value).filter(v=>['Calorie Smart','Veggie','Pescatarian','Medium Spice','Family Friendly','Prepped in 10'].includes(v));
+  const highProtein = document.getElementById('f-hp').checked;
+  const lowCal = document.getElementById('f-lc').checked;
+  const highFibre = document.getElementById('f-hf').checked;
+  const lowCarb = document.getElementById('f-lb').checked;
+
+  const fresh = parseIngRows('ingredient-rows');
+  const pantryFresh = parseIngRows('pantry-rows');
+  const timeNum = parseInt(time.replace(/[^0-9\-]/g,'').split('-').pop()) || 30;
+
+  if (editingId !== null) {
+    const existing = getAllRecipes().find(r => r.id == editingId) || {};
+    const updated = {
+      ...existing,
+      name, subtitle, tags, time, maxTime: timeNum,
+      highProtein, lowCal, highFibre, lowCarb,
+      img: imgInput || existing.img || null,
+      ingredients: { ...fresh, pantry: pantryFresh },
+      steps: parseSteps(),
+    };
+    if (editingId >= 1000) {
+      saveCustomRecipes(getCustomRecipes().map(r => r.id == editingId ? updated : r));
+    } else {
+      const ov = getOverrides(); ov[editingId] = updated; saveOverrides(ov);
+    }
+    const newCount = parseInt(document.getElementById('f-count').value) || 0;
+    const c = getCounts(); c[editingId] = newCount; lsSave('recipeCookCounts', c);
+  } else {
+    const newId = Date.now();
+    const recipe = {
+      id: newId, img: imgInput || null,
+      name, subtitle, tags, time, maxTime: timeNum,
+      highProtein, lowCal, highFibre, lowCarb,
+      ingredients: { ...fresh, pantry: pantryFresh },
+      steps: parseSteps(),
+    };
+    const customs = getCustomRecipes();
+    customs.push(recipe);
+    saveCustomRecipes(customs);
+  }
+  closeAddModal();
+  renderRecipes();
+}
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  document.getElementById('list-sticky').style.display = name === 'list' ? '' : 'none';
+  if (name==='plan') renderPlan();
+  if (name==='shop') buildShoppingList();
+}
+
+function updateNavBadges() {
+  const n = Object.keys(state.plan).length;
+  document.getElementById('badge-plan').textContent = n>0?`(${n})`:'';
+  document.getElementById('badge-total').textContent = `(${getAllRecipes().filter(r=>!isArchived(r.id)).length})`;
+}
+
+// ─── Steps Modal ─────────────────────────────────────────────────────────────
+let stepsModalId = null, stepsModalServing = '2P';
+
+function openStepsModal(id) {
+  stepsModalId = id;
+  stepsModalServing = state.plan[id] || '2P';
+  const r = getAllRecipes().find(x => x.id == id);
+  if (!r) return;
+  const imgHtml = r.img ? `<img class="steps-modal-img" src="${r.img}" alt="${r.name}">` : '';
+  const stepsHtml = r.steps && r.steps.length
+    ? r.steps.map(s => `
+        <div class="step">
+          <div class="step-num">${s.n}</div>
+          <div class="step-content"><h4>${s.title}</h4><p>${s.text}</p></div>
+        </div>`).join('')
+    : `<div class="steps-no-steps">No steps added yet — use the ✏️ edit button to add them.</div>`;
+  document.getElementById('steps-modal-content').innerHTML = `
+    ${imgHtml}
+    <div class="steps-modal-body">
+      <div class="steps-modal-title">${r.name}</div>
+      <div class="steps-modal-subtitle">⏱ ${r.time}${r.tags.length ? ' · ' + r.tags.join(', ') : ''}</div>
+      <div class="steps-modal-serving">
+        Serves
+        <select onchange="changeStepsServing(this.value)">
+          <option value="2P" ${stepsModalServing==='2P'?'selected':''}>2</option>
+          <option value="3P" ${stepsModalServing==='3P'?'selected':''}>3</option>
+          <option value="4P" ${stepsModalServing==='4P'?'selected':''}>4</option>
+        </select>
+        people
+      </div>
+      <div id="steps-modal-ingredients">${stepsIngredientsHtml(r, stepsModalServing)}</div>
+      <div class="steps-section-title">Steps</div>
+      ${stepsHtml}
+    </div>`;
+  document.getElementById('steps-modal').classList.add('open');
+}
+
+function changeStepsServing(s) {
+  stepsModalServing = s;
+  const r = getAllRecipes().find(x => x.id == stepsModalId);
+  if (r) document.getElementById('steps-modal-ingredients').innerHTML = stepsIngredientsHtml(r, s);
+}
+
+function stepsIngredientsHtml(r, serving) {
+  const fresh = r.ingredients?.[serving] || [];
+  const pantry = r.ingredients?.pantry?.[serving] || [];
+  function fmtAmt(i) {
+    if (!i.amount) return '';
+    if (!i.unit) return String(i.amount);
+    if (i.unit === 'g' || i.unit === 'ml') return `${i.amount}${i.unit}`;
+    return `${i.amount} ${i.unit}`;
+  }
+  function ingList(items) {
+    return items.map(i =>
+      `<div class="steps-ing-item"><span class="steps-ing-amt">${fmtAmt(i)}</span><span>${i.name}</span></div>`
+    ).join('');
+  }
+  let html = '';
+  if (fresh.length) html += `<div class="steps-ing-section"><div class="steps-ing-label">Ingredients</div>${ingList(fresh)}</div>`;
+  if (pantry.length) html += `<div class="steps-ing-section"><div class="steps-ing-label">Pantry</div>${ingList(pantry)}</div>`;
+  return html;
+}
+
+function closeStepsModal() { document.getElementById('steps-modal').classList.remove('open'); }
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+state.plan = ls('weeklyPlan', {});
+renderRecipes();
+</script>
+</div><!-- #app-content -->
+</body>
+</html>
