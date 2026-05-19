@@ -2,8 +2,8 @@
 
 Single-file HTML/CSS/JS web app. No build step, no framework, no dependencies.
 
-**Live URL**: https://gareetest.github.io/Hello-Garee-receipes/
-**GitHub repo**: https://github.com/GareeTest/Hello-Garee-receipes
+**Live URL**: https://gareetest.github.io/Hello-Garee-recipes/
+**GitHub repo**: https://github.com/GareeTest/Hello-Garee-recipes
 
 ## Files
 
@@ -222,4 +222,4 @@ Stored in `images/` directory, named to match recipes. Rotation corrections have
 
 ## GitHub Pages
 
-Hosted from the `main` branch root of `https://github.com/GareeTest/Hello-Garee-receipes`. Push via GitHub Desktop or `git push`. The repo must be **public** and GitHub Pages must be enabled (Settings → Pages → Deploy from branch: main / root).
+Hosted from the `main` branch root of `https://github.com/GareeTest/Hello-Garee-recipes`. Push via GitHub Desktop or `git push`. The repo must be **public** and GitHub Pages must be enabled (Settings → Pages → Deploy from branch: main / root).
