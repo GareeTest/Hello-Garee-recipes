@@ -366,12 +366,11 @@ footer { text-align: center; padding: 0.75rem; font-size: 0.75rem; color: #76767
       </div>
       <div class="filter-row">
         <label>Type</label>
-        <button class="chip type-chip active" onclick="setTypeFilter('all',this)">All</button>
-        <button class="chip type-chip" onclick="setTypeFilter('Main',this)">Main</button>
-        <button class="chip type-chip" onclick="setTypeFilter('Side',this)">Side</button>
-        <button class="chip type-chip" onclick="setTypeFilter('Dessert',this)">Dessert</button>
-        <button class="chip type-chip" onclick="setTypeFilter('Breakfast',this)">Breakfast</button>
-        <button class="chip type-chip" onclick="setTypeFilter('Lunch',this)">Lunch</button>
+        <button class="chip type-chip" onclick="toggleTypeFilter('Main',this)">Main</button>
+        <button class="chip type-chip" onclick="toggleTypeFilter('Side',this)">Side</button>
+        <button class="chip type-chip" onclick="toggleTypeFilter('Dessert',this)">Dessert</button>
+        <button class="chip type-chip" onclick="toggleTypeFilter('Breakfast',this)">Breakfast</button>
+        <button class="chip type-chip" onclick="toggleTypeFilter('Lunch',this)">Lunch</button>
       </div>
       <div class="filter-row">
         <label>Time</label>
@@ -1635,7 +1634,7 @@ const BUILTIN_RECIPES = [
 // ─── State ────────────────────────────────────────────────────────────────────
 const state = {
   plan: {},
-  filters: { tags:[], time:'all', nutrition:[], history:'all', search:'', type:'all' },
+  filters: { tags:[], time:'all', nutrition:[], history:'all', search:'', types:[] },
   filtersOpen: false,
 };
 let editingId = null;
@@ -1727,46 +1726,41 @@ function setHistoryFilter(val, btn) {
   updateFilterCount(); renderRecipes();
 }
 
-function setTypeFilter(val, btn) {
-  state.filters.type = val;
-  btn.parentElement.querySelectorAll('.type-chip').forEach(c => c.classList.remove('active'));
-  btn.classList.add('active');
+function toggleTypeFilter(val, btn) {
+  btn.classList.toggle('active');
+  state.filters.types = [...btn.parentElement.querySelectorAll('.type-chip.active')].map(c => c.textContent);
   updateFilterCount(); renderRecipes();
 }
 
 function updateFilterCount() {
-  const n = (state.filters.tags.length?1:0)+(state.filters.time!=='all'?1:0)+state.filters.nutrition.length+(state.filters.history!=='all'?1:0)+(state.filters.search?1:0)+(state.filters.type!=='all'?1:0);
+  const n = (state.filters.tags.length?1:0)+(state.filters.time!=='all'?1:0)+state.filters.nutrition.length+(state.filters.history!=='all'?1:0)+(state.filters.search?1:0)+state.filters.types.length;
   const el = document.getElementById('active-filter-count');
   el.textContent = n; el.style.display = n ? 'inline' : 'none';
 }
 
 function clearAllFilters() {
-  state.filters = { tags:[], time:'all', nutrition:[], history:'all', search:'', type:'all' };
+  state.filters = { tags:[], time:'all', nutrition:[], history:'all', search:'', types:[] };
   document.getElementById('search-input').value = '';
   document.getElementById('sort-select').value = 'default';
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   document.querySelector('[onclick="toggleTagFilter(\'all\',this)"]').classList.add('active');
   document.querySelector('[onclick="setTimeFilter(\'all\',this)"]').classList.add('active');
   document.querySelector('[onclick="setHistoryFilter(\'all\',this)"]').classList.add('active');
-  document.querySelector('[onclick="setTypeFilter(\'all\',this)"]').classList.add('active');
   updateFilterCount(); renderRecipes();
 }
 
 function applyFilters(recipes) {
-  const { tags, time, nutrition, history, search, type } = state.filters;
+  const { tags, time, nutrition, history, search, types } = state.filters;
   const sort = document.getElementById('sort-select')?.value || 'default';
   const counts = getCounts();
   let list = recipes.filter(r => {
     if (search && !`${r.name} ${r.subtitle}`.toLowerCase().includes(search)) return false;
-    if (type && type!=='all' && (r.type||'Main')!==type) return false;
+    if (types.length && !types.some(t => (r.type||'Main')===t)) return false;
     if (tags.length && !tags.some(t => r.tags.includes(t))) return false;
     if (time===20 && r.maxTime>20) return false;
     if (time===35 && r.maxTime>35) return false;
     if (time===99 && r.maxTime<=35) return false;
-    if (nutrition.includes('highProtein') && !r.highProtein) return false;
-    if (nutrition.includes('lowCal') && !r.lowCal) return false;
-    if (nutrition.includes('highFibre') && !r.highFibre) return false;
-    if (nutrition.includes('lowCarb') && !r.lowCarb) return false;
+    if (nutrition.length && !nutrition.some(n => r[n])) return false;
     const c = counts[r.id]||0;
     if (history==='never' && c>0) return false;
     if (history==='tried' && c===0) return false;
