@@ -1759,7 +1759,7 @@ function applyFilters(recipes) {
   let list = recipes.filter(r => {
     if (search && !`${r.name} ${r.subtitle}`.toLowerCase().includes(search)) return false;
     if (type && type!=='all' && (r.type||'Main')!==type) return false;
-    if (tags.length && !tags.every(t => r.tags.includes(t))) return false;
+    if (tags.length && !tags.some(t => r.tags.includes(t))) return false;
     if (time===20 && r.maxTime>20) return false;
     if (time===35 && r.maxTime>35) return false;
     if (time===99 && r.maxTime<=35) return false;
