@@ -2355,6 +2355,16 @@ function clearAllFilters() {
   updateFilterCount(); renderRecipes();
 }
 
+const _seafoodKeywords = ['salmon','prawn','prawns','fish','cod','haddock','mackerel','sea bass','seabass','tuna','sardine','anchovy','mussel','mussels','clam','clams','squid','scallop','scallops','crab','lobster','shrimp','trout','basa','kedgeree'];
+function _hasSeafood(r) {
+  const ings = [...(r.ingredients?.['2P']||[]), ...(r.ingredients?.pantry?.['2P']||[])];
+  return ings.some(ing => _seafoodKeywords.some(k => ing.name.toLowerCase().includes(k)));
+}
+function _effectiveTags(r) {
+  if (!r.tags.includes('Pescatarian') && _hasSeafood(r)) return [...r.tags, 'Pescatarian'];
+  return r.tags;
+}
+
 function applyFilters(recipes) {
   const { tags, time, nutrition, history, search, types } = state.filters;
   const sort = document.getElementById('sort-select')?.value || 'default';
@@ -2362,7 +2372,7 @@ function applyFilters(recipes) {
   let list = recipes.filter(r => {
     if (search && !`${r.name} ${r.subtitle}`.toLowerCase().includes(search)) return false;
     if (types.length && !types.some(t => (r.type||'Main')===t)) return false;
-    if (tags.length && !tags.some(t => r.tags.includes(t))) return false;
+    if (tags.length && !tags.some(t => _effectiveTags(r).includes(t))) return false;
     if (time===20 && r.maxTime>20) return false;
     if (time===35 && r.maxTime>35) return false;
     if (time===99 && r.maxTime<=35) return false;
@@ -2381,6 +2391,40 @@ function applyFilters(recipes) {
 }
 
 // ─── Render Recipes ───────────────────────────────────────────────────────────
+function cardHTML(r, isArch, counts) {
+  const inPlan = !!state.plan[r.id];
+  const count = counts[r.id] || 0;
+  const isCustom = r.id >= 1000;
+  const nutrTags = [r.highProtein?'💪 High Protein':null, r.lowCal?'🥗 Low Cal':null, r.highFibre?'🌿 High Fibre':null, r.lowCarb?'Low Carb':null].filter(Boolean);
+  const imgContent = r.img
+    ? `<img class="card-img" src="${esc(r.img)}" alt="${esc(r.name)}" loading="lazy">`
+    : `<div class="no-img-placeholder">🍽</div>`;
+  const footerActions = isArch
+    ? `<button class="icon-btn restore-btn" data-action="restore" data-id="${r.id}">↩ Restore</button>`
+    : `<button class="icon-btn steps-btn" data-action="steps" data-id="${r.id}" title="View steps">👨‍🍳</button>
+       <button class="icon-btn edit-btn" data-action="edit" data-id="${r.id}" title="Edit recipe">✏️</button>
+       <button class="icon-btn archive-btn" data-action="archive" data-id="${r.id}" title="Archive">🗃</button>
+       ${count > 0 ? `<span class="cook-record">COOKED: ${count}</span>` : ''}`;
+  return `
+  <div class="recipe-card ${inPlan&&!isArch?'in-plan':''} ${isArch?'archived-card':''}" ${isArch?'':'data-action="toggle-plan" data-id="'+r.id+'"'}>
+    ${inPlan&&!isArch?'<div class="plan-badge">In plan ✓</div>':''}
+    ${isCustom?'<div class="custom-badge">Custom</div>':''}
+    <div class="card-img-wrap">${imgContent}</div>
+    <div class="card-body">
+      <div class="card-tags">
+        ${r.tags.map(t=>`<span class="tag ${tagClass(t)}">${esc(t)}</span>`).join('')}
+        ${nutrTags.map(t=>`<span class="tag" style="background:#fff8e1;color:#f57f17">${esc(t)}</span>`).join('')}
+      </div>
+      <h2>${esc(r.name)}</h2>
+      <p>${esc(r.subtitle||'')}</p>
+    </div>
+    <div class="card-footer">
+      <span class="card-time">⏱ ${esc(r.time)}</span>
+      <div class="card-actions">${footerActions}</div>
+    </div>
+  </div>`;
+}
+
 function renderRecipes() {
   const all = getAllRecipes();
   const archived = getArchived();
@@ -2398,40 +2442,6 @@ function renderRecipes() {
   shopBtn.classList.toggle('visible', planN > 0);
   document.getElementById('clear-plan-btn').classList.toggle('visible', planN > 0);
 
-  function cardHTML(r, isArch) {
-    const inPlan = !!state.plan[r.id];
-    const count = counts[r.id] || 0;
-    const isCustom = r.id >= 1000;
-    const nutrTags = [r.highProtein?'💪 High Protein':null, r.lowCal?'🥗 Low Cal':null, r.highFibre?'🌿 High Fibre':null, r.lowCarb?'Low Carb':null].filter(Boolean);
-    const imgContent = r.img
-      ? `<img class="card-img" src="${esc(r.img)}" alt="${esc(r.name)}" loading="lazy">`
-      : `<div class="no-img-placeholder">🍽</div>`;
-    const footerActions = isArch
-      ? `<button class="icon-btn restore-btn" data-action="restore" data-id="${r.id}">↩ Restore</button>`
-      : `<button class="icon-btn steps-btn" data-action="steps" data-id="${r.id}" title="View steps">👨‍🍳</button>
-         <button class="icon-btn edit-btn" data-action="edit" data-id="${r.id}" title="Edit recipe">✏️</button>
-         <button class="icon-btn archive-btn" data-action="archive" data-id="${r.id}" title="Archive">🗃</button>
-         ${count > 0 ? `<span class="cook-record">COOKED: ${count}</span>` : ''}`;
-    return `
-    <div class="recipe-card ${inPlan&&!isArch?'in-plan':''} ${isArch?'archived-card':''}" ${isArch?'':'data-action="toggle-plan" data-id="'+r.id+'"'}>
-      ${inPlan&&!isArch?'<div class="plan-badge">In plan ✓</div>':''}
-      ${isCustom?'<div class="custom-badge">Custom</div>':''}
-      <div class="card-img-wrap">${imgContent}</div>
-      <div class="card-body">
-        <div class="card-tags">
-          ${r.tags.map(t=>`<span class="tag ${tagClass(t)}">${esc(t)}</span>`).join('')}
-          ${nutrTags.map(t=>`<span class="tag" style="background:#fff8e1;color:#f57f17">${esc(t)}</span>`).join('')}
-        </div>
-        <h2>${esc(r.name)}</h2>
-        <p>${esc(r.subtitle||'')}</p>
-      </div>
-      <div class="card-footer">
-        <span class="card-time">⏱ ${esc(r.time)}</span>
-        <div class="card-actions">${footerActions}</div>
-      </div>
-    </div>`;
-  }
-
   let html = '';
   if (filtered.length === 0 && archivedList.length === 0) {
     html = '<div class="no-results">No recipes match these filters.<br><br><button class="chip" data-action="clear-filters">Clear filters</button></div>';
@@ -2439,11 +2449,11 @@ function renderRecipes() {
     if (filtered.length === 0) {
       html = '<div class="no-results" style="grid-column:1/-1">No active recipes match these filters.</div>';
     } else {
-      html = filtered.map(r => cardHTML(r, false)).join('');
+      html = filtered.map(r => cardHTML(r, false, counts)).join('');
     }
     if (archivedList.length > 0) {
       html += `<div class="archived-divider">Archived recipes</div>`;
-      html += archivedList.map(r => cardHTML(r, true)).join('');
+      html += archivedList.map(r => cardHTML(r, true, counts)).join('');
     }
   }
   grid.innerHTML = html;
@@ -2451,7 +2461,10 @@ function renderRecipes() {
 }
 
 function refreshShopIfActive() { if (document.getElementById('page-shop').classList.contains('active')) buildShoppingList(); }
-function clearPlan() { state.plan = {}; savePlan(); renderPlan(); renderRecipes(); refreshShopIfActive(); }
+function clearPlan() {
+  if (!confirm('Clear all meals from your weekly plan?\n\nThis cannot be undone.')) return;
+  state.plan = {}; savePlan(); renderPlan(); renderRecipes(); refreshShopIfActive();
+}
 
 let planToastTimer;
 function showPlanToast(id, added) {
@@ -2571,11 +2584,43 @@ function openSainsburys(type) {
   links.forEach(a => window.open(a.href, '_blank'));
 }
 
-function goToShoppingList() { buildShoppingList(); showPage('shop', document.getElementById('nav-shop')); }
+function goToShoppingList() { showPage('shop', document.getElementById('nav-shop')); }
 
 // ─── Shopping List ────────────────────────────────────────────────────────────
 function get1P(list) {
   return (list||[]).map(ing => ({...ing, amount: Math.round(ing.amount * 5) / 10}));
+}
+
+const _unitNorm = { 'carton':'tin','cartons':'tin','clove':'cloves','bunch':'bunches','sachet':'sachets','stock pot':'stock pots' };
+function _normaliseUnit(u) { return _unitNorm[u] || u || ''; }
+function _addIng(store, ing) {
+  const k = ing.name.toLowerCase();
+  if (!store[k]) store[k] = { name: ing.name, units: {} };
+  const u = _normaliseUnit(ing.unit);
+  store[k].units[u] = Math.round(((store[k].units[u] || 0) + ing.amount) * 10) / 10;
+}
+function _fmtAmount(item) {
+  return Object.entries(item.units).map(([unit, amount]) => {
+    if (!unit) return `${amount}`;
+    if (unit==='g'||unit==='ml') return `${amount}${unit}`;
+    return `${amount} ${unit}`;
+  }).join(' and ');
+}
+const _searchOverrides = {
+  'pumpkin and sage girasoli': 'pumpkin and sage girasoli pasta',
+  'intense tomato':            'vine tomato',
+  'central american style spice mix': 'mexican spice mix',
+  'white wine stock powder':   'small white wine bottle',
+  'red wine stock paste':      'red wine stock',
+  'vegetable stock paste':     'vegetable stock',
+  'chicken stock paste':       'chicken stock',
+  'white wine stock paste':    'small white wine bottle',
+};
+function _sainsburysSearch(name) { return _searchOverrides[name.toLowerCase()] || name; }
+function _shopRows(items, type) {
+  return `<div class="shopping-grid">${items.map(item =>
+    `<div class="shopping-item"><span class="item-amount">(${_fmtAmount(item)})</span><span class="item-sep"> </span><span class="item-name">${item.name}</span><a class="sainsburys-link sainsburys-${type}" href="https://www.sainsburys.co.uk/groceries/search?searchTerm=${encodeURIComponent(_sainsburysSearch(item.name))}" target="_blank" rel="noopener">🛒</a></div>`
+  ).join('')}</div>`;
 }
 
 function buildShoppingList(planMap) {
@@ -2583,53 +2628,19 @@ function buildShoppingList(planMap) {
   const ids = Object.keys(plan);
   const all = getAllRecipes();
   const fresh = {}, pantry = {};
-  const unitNorm = { 'carton':'tin','cartons':'tin','clove':'cloves','bunch':'bunches','sachet':'sachets','stock pot':'stock pots' };
-  function normaliseUnit(u) { return unitNorm[u] || u || ''; }
-  function addIng(store, ing) {
-    const k = ing.name.toLowerCase();
-    if (!store[k]) store[k] = { name: ing.name, units: {} };
-    const u = normaliseUnit(ing.unit);
-    store[k].units[u] = Math.round(((store[k].units[u] || 0) + ing.amount) * 10) / 10;
-  }
   ids.forEach(id => {
     const r = all.find(x => x.id === Number(id));
     if (!r) return;
     const s = plan[id];
     const freshList = s === '1P' ? get1P(r.ingredients?.['2P']) : (r.ingredients?.[s]||[]);
     const pantryList = s === '1P' ? get1P(r.ingredients?.pantry?.['2P']) : (r.ingredients?.pantry?.[s]||[]);
-    freshList.forEach(ing => addIng(fresh, ing));
-    pantryList.forEach(ing => addIng(pantry, ing));
+    freshList.forEach(ing => _addIng(fresh, ing));
+    pantryList.forEach(ing => _addIng(pantry, ing));
   });
 
   const mealNames = ids.map(id => (all.find(r=>r.id==id)||{name:'?'}).name);
   const sf = Object.values(fresh).sort((a,b)=>a.name.localeCompare(b.name));
   const sp = Object.values(pantry).sort((a,b)=>a.name.localeCompare(b.name));
-
-  function fmt(item) {
-    return Object.entries(item.units).map(([unit, amount]) => {
-      if (!unit) return `${amount}`;
-      if (unit==='g'||unit==='ml') return `${amount}${unit}`;
-      return `${amount} ${unit}`;
-    }).join(' and ');
-  }
-  const searchOverrides = {
-    'pumpkin and sage girasoli': 'pumpkin and sage girasoli pasta',
-    'intense tomato':            'vine tomato',
-    'central american style spice mix': 'mexican spice mix',
-    'white wine stock powder':   'small white wine bottle',
-    'red wine stock paste':      'red wine stock',
-    'vegetable stock paste':     'vegetable stock',
-    'chicken stock paste':       'chicken stock',
-    'white wine stock paste':    'small white wine bottle',
-  };
-  function sainsburysSearch(name) {
-    return searchOverrides[name.toLowerCase()] || name;
-  }
-  function rows(items, type) {
-    return `<div class="shopping-grid">${items.map(item =>
-      `<div class="shopping-item"><span class="item-amount">(${fmt(item)})</span><span class="item-sep"> </span><span class="item-name">${item.name}</span><a class="sainsburys-link sainsburys-${type}" href="https://www.sainsburys.co.uk/groceries/search?searchTerm=${encodeURIComponent(sainsburysSearch(item.name))}" target="_blank" rel="noopener">🛒</a></div>`
-    ).join('')}</div>`;
-  }
 
   if (!planMap) {
     const lbl = document.getElementById('shop-plan-label');
@@ -2650,8 +2661,8 @@ function buildShoppingList(planMap) {
       </div>
     </div>
     <div class="meal-summary"><strong>Meals this week:</strong> ${mealNames.join(' · ')}</div>
-    <div class="shopping-section section-fresh"><h3>Fresh Ingredients</h3>${rows(sf, 'fresh')}</div>
-    ${sp.length?`<div class="shopping-section section-pantry"><h3>Pantry — check you have these</h3>${rows(sp, 'pantry')}</div>`:''}
+    <div class="shopping-section section-fresh"><h3>Fresh Ingredients</h3>${_shopRows(sf, 'fresh')}</div>
+    ${sp.length?`<div class="shopping-section section-pantry"><h3>Pantry — check you have these</h3>${_shopRows(sp, 'pantry')}</div>`:''}
     <div class="plan-actions" style="margin-top:1rem">
       <button class="btn-cooked" onclick="markWeekCooked('cooked-toast-shop')">✅ Mark Week as COOKED</button>
       <div class="toast green" id="cooked-toast-shop"></div>
