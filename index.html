@@ -2245,7 +2245,7 @@ function goToHistoryShoppingList(planId) {
 function sharePlan(planId) {
   const plan = getSavedPlans().find(p => p.id === planId);
   if (!plan) return;
-  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(plan))));
+  const encoded = encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(plan)))));
   const url = `${location.origin}${location.pathname}?plan=${encoded}`;
   const mealList = plan.recipes.map(r => `  • ${r.name} (${servingLabel(r.serving)})`).join('\n');
   const body = `Here's my meal plan for the week: "${plan.name}"\n\nMeals:\n${mealList}\n\nClick to open in Hello Garee's Recipe Planner and add it to your saved plans:\n${url}`;
@@ -3051,13 +3051,13 @@ document.addEventListener('change', function(e) {
 state.plan = ls('weeklyPlan', {});
 renderRecipes();
 setTimeout(renderPlan);
-setTimeout(checkForSharedPlan);
+document.addEventListener('DOMContentLoaded', checkForSharedPlan);
 </script>
 <footer>&copy; 2025 Garee Hilsdon. All rights reserved.</footer>
 </main><!-- #app-content -->
 
 <!-- ═══ IMPORT PLAN MODAL ═══ -->
-<div class="modal-overlay" id="import-plan-modal" onclick="closeModalIfOverlay(event)" style="z-index:200">
+<div class="modal-overlay" id="import-plan-modal" onclick="if(event.target===this)closeImportModal()" style="z-index:200">
   <div class="modal" style="max-width:480px">
     <div class="modal-header">
       <h2>📥 Shared Meal Plan</h2>
