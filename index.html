@@ -2237,6 +2237,50 @@ function goToHistoryShoppingList(planId) {
   showPage('shop', document.getElementById('nav-shop'));
 }
 
+function sharePlan(planId) {
+  const plan = getSavedPlans().find(p => p.id === planId);
+  if (!plan) return;
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(plan))));
+  const url = `${location.origin}${location.pathname}?plan=${encoded}`;
+  const mealList = plan.recipes.map(r => `  • ${r.name} (${servingLabel(r.serving)})`).join('\n');
+  const body = `Here's my meal plan for the week: "${plan.name}"\n\nMeals:\n${mealList}\n\nClick to open in Hello Garee's Recipe Planner and add it to your saved plans:\n${url}`;
+  window.location.href = `mailto:?subject=${encodeURIComponent('Meal plan: ' + plan.name)}&body=${encodeURIComponent(body)}`;
+}
+
+let _pendingImportPlan = null;
+function checkForSharedPlan() {
+  const param = new URLSearchParams(window.location.search).get('plan');
+  if (!param) return;
+  try {
+    const plan = JSON.parse(decodeURIComponent(escape(atob(param))));
+    if (!plan || !plan.name || !Array.isArray(plan.recipes)) return;
+    _pendingImportPlan = plan;
+    const existing = getSavedPlans().find(p => p.id === plan.id);
+    const date = new Date(plan.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const items = plan.recipes.map(r => `<li class="history-recipe-item">${esc(r.name)} <span class="history-recipe-serving">(${servingLabel(r.serving)})</span></li>`).join('');
+    document.getElementById('import-plan-preview').innerHTML = `
+      <div style="font-weight:700;font-size:0.95rem;margin-bottom:0.3rem">${esc(plan.name)}</div>
+      <div style="font-size:0.72rem;color:#999;margin-bottom:0.6rem">Saved ${date} · ${plan.recipes.length} meal${plan.recipes.length!==1?'s':''}</div>
+      <ul class="history-recipe-list">${items}</ul>
+      ${existing ? '<p style="margin-top:0.75rem;font-size:0.8rem;color:#e65100;font-weight:600">⚠️ You already have this plan saved.</p>' : ''}`;
+    document.getElementById('import-plan-modal').classList.add('open');
+    history.replaceState(null, '', location.pathname);
+  } catch(e) {}
+}
+function confirmImportPlan() {
+  if (!_pendingImportPlan) return;
+  const existing = getSavedPlans().find(p => p.id === _pendingImportPlan.id);
+  if (!existing) setSavedPlans([_pendingImportPlan, ...getSavedPlans()]);
+  closeImportModal();
+  showPage('history', document.getElementById('nav-history'));
+}
+function closeImportModal() {
+  _pendingImportPlan = null;
+  document.getElementById('import-plan-modal').classList.remove('open');
+}
+
+function servingLabel(s) { return s === '1P' ? '1 person' : s.replace('P', ' people'); }
+
 function renderHistory() {
   const container = document.getElementById('history-content');
   if (!container) return;
@@ -2245,7 +2289,6 @@ function renderHistory() {
     container.innerHTML = '<div class="history-empty"><div style="font-size:2.5rem;margin-bottom:0.75rem">📅</div><p style="font-weight:700;font-size:0.95rem">No saved plans yet</p><p style="margin-top:0.4rem;font-size:0.82rem;max-width:280px;margin-left:auto;margin-right:auto">Use <strong>💾 Save this week</strong> on the Weekly Plan tab before starting a new week.</p></div>';
     return;
   }
-  function servingLabel(s) { return s === '1P' ? '1 person' : s.replace('P',' people'); }
   const cards = plans.map(p => {
     const date = new Date(p.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     const n = p.recipes.length;
@@ -2262,7 +2305,10 @@ function renderHistory() {
         <button class="history-delete-btn" data-action="delete-saved-plan" data-plan-id="${p.id}" title="Delete">×</button>
       </div>
       <ul class="history-recipe-list">${items}</ul>
-      <button class="btn-history-shop" data-action="history-shopping" data-plan-id="${p.id}">🛒 Generate Shopping List</button>
+      <div style="display:flex;gap:0.5rem;margin-top:0.9rem">
+        <button class="btn-history-shop" style="margin-top:0;flex:1" data-action="history-shopping" data-plan-id="${p.id}">🛒 Shopping List</button>
+        <button class="btn-history-shop" style="margin-top:0;flex:1;background:#555" data-action="share-plan" data-plan-id="${p.id}">📧 Share</button>
+      </div>
     </div>`;
   }).join('');
   container.innerHTML = `
@@ -2961,6 +3007,7 @@ document.addEventListener('click', function(e) {
     case 'save-plan':      savePlanToHistory(); break;
     case 'delete-saved-plan': deleteSavedPlan(Number(el.dataset.planId)); break;
     case 'history-shopping':  goToHistoryShoppingList(Number(el.dataset.planId)); break;
+    case 'share-plan':        sharePlan(Number(el.dataset.planId)); break;
   }
 });
 document.addEventListener('change', function(e) {
@@ -2973,9 +3020,26 @@ document.addEventListener('change', function(e) {
 state.plan = ls('weeklyPlan', {});
 renderRecipes();
 setTimeout(renderPlan);
+checkForSharedPlan();
 </script>
 <footer>&copy; 2025 Garee Hilsdon. All rights reserved.</footer>
 </main><!-- #app-content -->
+
+<!-- ═══ IMPORT PLAN MODAL ═══ -->
+<div class="modal-overlay" id="import-plan-modal" onclick="closeModalIfOverlay(event)" style="z-index:200">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2>📥 Shared Meal Plan</h2>
+      <button class="modal-close" onclick="closeImportModal()">×</button>
+    </div>
+    <p style="font-size:0.9rem;color:#555;margin-bottom:1rem">Someone shared a meal plan with you:</p>
+    <div id="import-plan-preview" style="background:#f5f5f0;border-radius:10px;padding:1rem;margin-bottom:1.2rem"></div>
+    <div style="display:flex;gap:0.75rem">
+      <button class="btn-primary" onclick="confirmImportPlan()" style="flex:1">Add to my Plan History</button>
+      <button class="btn-cooked" onclick="closeImportModal()" style="flex:1">Dismiss</button>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ PLAN DRAWER (desktop only) ═══ -->
 <div id="plan-drawer">
