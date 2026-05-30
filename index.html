@@ -3051,7 +3051,7 @@ document.addEventListener('change', function(e) {
 state.plan = ls('weeklyPlan', {});
 renderRecipes();
 setTimeout(renderPlan);
-checkForSharedPlan();
+setTimeout(checkForSharedPlan);
 </script>
 <footer>&copy; 2025 Garee Hilsdon. All rights reserved.</footer>
 </main><!-- #app-content -->
