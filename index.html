@@ -187,6 +187,28 @@ footer { text-align: center; padding: 0.75rem; font-size: 0.75rem; color: #76767
 .sainsburys-link:hover { opacity: 1; }
 .empty-list { text-align: center; padding: 3rem; color: #767676; }
 
+/* ── Plan History ── */
+.history-empty { text-align: center; padding: 4rem 2rem; color: #767676; }
+.history-page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.history-page-header h2 { font-size: 1rem; font-weight: 700; }
+.history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.1rem; }
+.history-card { background: white; border-radius: 12px; padding: 1rem 1.2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.08); border-left: 4px solid var(--green); }
+.history-meal-count { font-size: 0.68rem; font-weight: 700; background: #d8f3dc; color: var(--green-dark); padding: 0.15rem 0.5rem; border-radius: 20px; white-space: nowrap; flex-shrink: 0; margin-top: 0.1rem; }
+.history-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
+.history-card-meta { flex: 1; min-width: 0; }
+.history-card-name { font-size: 0.95rem; font-weight: 700; line-height: 1.3; }
+.history-card-date { font-size: 0.72rem; color: #999; margin-top: 0.15rem; }
+.history-delete-btn { background: none; border: none; color: #ccc; font-size: 1.2rem; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; transition: color 0.15s; }
+.history-delete-btn:hover { color: #e53935; }
+.history-recipe-list { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+.history-recipe-item { font-size: 0.8rem; color: #444; display: flex; align-items: baseline; gap: 0.4rem; }
+.history-recipe-item::before { content: '·'; color: var(--green); font-weight: 700; flex-shrink: 0; }
+.history-recipe-serving { font-size: 0.7rem; color: #999; white-space: nowrap; }
+.btn-save-plan { width: 100%; padding: 0.9rem; background: white; color: var(--green); border: 2.5px solid var(--green); border-radius: 10px; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.btn-save-plan:hover { background: var(--green); color: white; }
+.btn-history-shop { width: 100%; margin-top: 0.9rem; padding: 0.65rem; background: var(--green); color: white; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: background 0.15s; font-family: inherit; }
+.btn-history-shop:hover { background: var(--green-dark); }
+
 /* ── Add Recipe Modal ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: none; align-items: flex-start; justify-content: center; padding: 1rem; overflow-y: auto; }
 .modal-overlay.open { display: flex; }
@@ -344,6 +366,7 @@ footer { text-align: center; padding: 0.75rem; font-size: 0.75rem; color: #76767
   <button id="nav-list" class="active" onclick="showPage('list',this)"><span>📋 Recipes <span id="badge-total"></span></span><small>Pick your meals</small></button>
   <button id="nav-plan" onclick="showPage('plan',this)"><span>🗓 Weekly Plan <span id="badge-plan"></span></span><small>Review &amp; confirm</small></button>
   <button id="nav-shop" onclick="showPage('shop',this)">🛒 Shopping List<small>Buy ingredients</small></button>
+  <button id="nav-history" onclick="showPage('history',this)">📚 History<small>Saved weeks</small></button>
 </nav>
 <div id="list-sticky">
   <div class="filter-bar">
@@ -451,7 +474,13 @@ footer { text-align: center; padding: 0.75rem; font-size: 0.75rem; color: #76767
 
 <!-- ═══ SHOPPING LIST PAGE ═══ -->
 <div id="page-shop" class="page">
+  <div id="shop-plan-label" style="display:none;font-size:0.82rem;color:#767676;margin-bottom:0.75rem;padding:0.5rem 0.75rem;background:#e8f5e9;border-radius:8px;"></div>
   <div id="shop-content"><div class="empty-list">Select meals in your Weekly Plan first.</div></div>
+</div>
+
+<!-- ═══ PLAN HISTORY PAGE ═══ -->
+<div id="page-history" class="page">
+  <div id="history-content"></div>
 </div>
 
 <!-- ═══ ADD RECIPE MODAL ═══ -->
@@ -627,6 +656,11 @@ function mergeCloudData(data) {
 
   state.plan = { ...(data.weeklyPlan||{}), ...state.plan };
   lsRaw('weeklyPlan', state.plan);
+
+  const localPlanIds = new Set(getSavedPlans().map(p => p.id));
+  const cloudPlans = (data.savedPlans||[]).filter(p => !localPlanIds.has(p.id));
+  const mergedPlans = [...getSavedPlans(), ...cloudPlans].sort((a,b) => b.id - a.id);
+  lsRaw('savedPlans', mergedPlans);
 }
 
 let _saveTimer = null;
@@ -645,6 +679,7 @@ async function saveToCloud() {
       recipeCookCounts: getCounts(),
       archivedRecipes: [...getArchived()],
       weeklyPlan: state.plan,
+      savedPlans: getSavedPlans(),
       lastSaved: firebase.firestore.FieldValue.serverTimestamp(),
     });
     setCloudStatus('Synced ✓');
@@ -2160,6 +2195,79 @@ function saveCustomRecipes(arr) { lsSave('customRecipes', arr); }
 
 function savePlan() { lsSave('weeklyPlan', state.plan); }
 
+// ─── Plan History ─────────────────────────────────────────────────────────────
+function getSavedPlans() { return ls('savedPlans', []); }
+function setSavedPlans(arr) { lsSave('savedPlans', arr); }
+
+function savePlanToHistory() {
+  const ids = Object.keys(state.plan);
+  if (!ids.length) return;
+  const all = getAllRecipes();
+  const weekLabel = 'Week of ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const name = prompt('Save this week as:', weekLabel);
+  if (name === null) return;
+  const recipes = ids.map(id => {
+    const r = all.find(x => x.id === Number(id));
+    return r ? { id: Number(id), name: r.name, time: r.time, serving: state.plan[id] } : null;
+  }).filter(Boolean);
+  const plan = { id: Date.now(), name: name.trim() || weekLabel, date: new Date().toISOString(), recipes };
+  setSavedPlans([plan, ...getSavedPlans()]);
+  renderHistory();
+}
+
+function deleteSavedPlan(planId) {
+  if (!confirm('Delete this saved plan?')) return;
+  setSavedPlans(getSavedPlans().filter(p => p.id !== planId));
+  renderHistory();
+}
+
+let _skipShopBuild = false;
+function goToHistoryShoppingList(planId) {
+  const plan = getSavedPlans().find(p => p.id === planId);
+  if (!plan) return;
+  const servingMap = {};
+  plan.recipes.forEach(r => { servingMap[r.id] = r.serving; });
+  buildShoppingList(servingMap);
+  const label = document.getElementById('shop-plan-label');
+  label.textContent = '📚 Shopping list for: ' + plan.name;
+  label.style.display = 'block';
+  _skipShopBuild = true;
+  showPage('shop', document.getElementById('nav-shop'));
+}
+
+function renderHistory() {
+  const container = document.getElementById('history-content');
+  if (!container) return;
+  const plans = getSavedPlans();
+  if (!plans.length) {
+    container.innerHTML = '<div class="history-empty"><div style="font-size:2.5rem;margin-bottom:0.75rem">📅</div><p style="font-weight:700;font-size:0.95rem">No saved plans yet</p><p style="margin-top:0.4rem;font-size:0.82rem;max-width:280px;margin-left:auto;margin-right:auto">Use <strong>💾 Save this week</strong> on the Weekly Plan tab before starting a new week.</p></div>';
+    return;
+  }
+  function servingLabel(s) { return s === '1P' ? '1 person' : s.replace('P',' people'); }
+  const cards = plans.map(p => {
+    const date = new Date(p.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const n = p.recipes.length;
+    const items = p.recipes.map(r =>
+      `<li class="history-recipe-item">${esc(r.name)} <span class="history-recipe-serving">(${servingLabel(r.serving)})</span></li>`
+    ).join('');
+    return `<div class="history-card">
+      <div class="history-card-header">
+        <div class="history-card-meta">
+          <div class="history-card-name">${esc(p.name)}</div>
+          <div class="history-card-date">Saved ${date}</div>
+        </div>
+        <span class="history-meal-count">${n} meal${n!==1?'s':''}</span>
+        <button class="history-delete-btn" data-action="delete-saved-plan" data-plan-id="${p.id}" title="Delete">×</button>
+      </div>
+      <ul class="history-recipe-list">${items}</ul>
+      <button class="btn-history-shop" data-action="history-shopping" data-plan-id="${p.id}">🛒 Generate Shopping List</button>
+    </div>`;
+  }).join('');
+  container.innerHTML = `
+    <div class="history-page-header"><h2>${plans.length} saved plan${plans.length!==1?'s':''}</h2></div>
+    <div class="history-grid">${cards}</div>`;
+}
+
 function getOverrides() { return ls('recipeOverrides', {}); }
 function saveOverrides(o) { lsSave('recipeOverrides', o); }
 
@@ -2429,6 +2537,7 @@ function renderPlan(containerId) {
     <div class="plan-actions">
       <button class="btn-primary" data-action="go-shopping">🛒 Generate Shopping List</button>
       <button class="btn-cooked" data-action="mark-cooked">✅ Mark Week as COOKED</button>
+      <button class="btn-save-plan" data-action="save-plan">💾 Save this week</button>
       <div class="toast green" id="cooked-toast"></div>
     </div>`;
 }
@@ -2467,8 +2576,9 @@ function get1P(list) {
   return (list||[]).map(ing => ({...ing, amount: Math.round(ing.amount * 5) / 10}));
 }
 
-function buildShoppingList() {
-  const ids = Object.keys(state.plan);
+function buildShoppingList(planMap) {
+  const plan = planMap || state.plan;
+  const ids = Object.keys(plan);
   const all = getAllRecipes();
   const fresh = {}, pantry = {};
   const unitNorm = { 'carton':'tin','cartons':'tin','clove':'cloves','bunch':'bunches','sachet':'sachets','stock pot':'stock pots' };
@@ -2482,7 +2592,7 @@ function buildShoppingList() {
   ids.forEach(id => {
     const r = all.find(x => x.id === Number(id));
     if (!r) return;
-    const s = state.plan[id];
+    const s = plan[id];
     const freshList = s === '1P' ? get1P(r.ingredients?.['2P']) : (r.ingredients?.[s]||[]);
     const pantryList = s === '1P' ? get1P(r.ingredients?.pantry?.['2P']) : (r.ingredients?.pantry?.[s]||[]);
     freshList.forEach(ing => addIng(fresh, ing));
@@ -2519,6 +2629,10 @@ function buildShoppingList() {
     ).join('')}</div>`;
   }
 
+  if (!planMap) {
+    const lbl = document.getElementById('shop-plan-label');
+    if (lbl) lbl.style.display = 'none';
+  }
   const content = document.getElementById('shop-content');
   if (!ids.length) {
     content.innerHTML = '<div class="empty-list">Select meals in your Weekly Plan first.</div>';
@@ -2737,7 +2851,9 @@ function showPage(name, btn) {
   if (btn) btn.classList.add('active');
   document.getElementById('list-sticky').style.display = name === 'list' ? '' : 'none';
   if (name==='plan') renderPlan();
-  if (name==='shop') buildShoppingList();
+  if (name==='shop' && !_skipShopBuild) buildShoppingList();
+  _skipShopBuild = false;
+  if (name==='history') renderHistory();
 }
 
 function updateNavBadges() {
@@ -2829,6 +2945,9 @@ document.addEventListener('click', function(e) {
     case 'archive-plan':   archiveFromPlan(id); break;
     case 'go-shopping':    goToShoppingList(); break;
     case 'mark-cooked':    markWeekCooked(); break;
+    case 'save-plan':      savePlanToHistory(); break;
+    case 'delete-saved-plan': deleteSavedPlan(Number(el.dataset.planId)); break;
+    case 'history-shopping':  goToHistoryShoppingList(Number(el.dataset.planId)); break;
   }
 });
 document.addEventListener('change', function(e) {
