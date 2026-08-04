@@ -22,18 +22,19 @@ To deploy: `git push` to main — GitHub Pages serves from repo root.
 
 Four tabs: **Recipes**, **Weekly Plan**, **Shopping List**, **History**.
 
-- **Recipes tab**: grid of recipe cards. Filter by tag/time/diet. Select meals for the week, view steps (👨‍🍳), edit (✏), archive (🗃), or add custom.
+- **Recipes tab**: grid of recipe cards. Filter by tag/time/diet/nutrition/history. Select meals for the week, view steps (👨‍🍳), edit (✏), archive (🗃), or add custom. Heart button (♡/♥) top-left of each card to toggle favourite.
 - **Weekly Plan tab**: selected meals with serving size dropdowns. Save current week to history (💾). Mark Week as Cooked.
 - **Shopping List tab**: aggregated fresh + pantry ingredient list. Tap item to mark as got (strikethrough). Tap amount to edit inline. Sainsbury's search links per item.
 - **History tab**: saved weekly plans. Load a past plan into the weekly plan (📥 Load Plan), or share via Gmail.
-- **Help modal**: `?` button top-right of header. Opens a modal with per-tab feature tips.
+- **Header buttons**: `+ Add Recipe`, `Help` (opens help modal), and auth (Sign In / Sign Out) — all use `.auth-btn` style. On mobile (≤600px) the button row wraps to a second line below the title.
+- **Favourites**: ♡ heart on each card; ❤ Favourites toggle in the filter bar shows only favourited recipes.
 
 ## Data Model
 
 ### Recipe object
 ```js
 {
-  id: Number,           // built-ins: 10–625; custom: Date.now() (large int)
+  id: Number,           // built-ins: 10–634; custom: Date.now() (large int)
   name: String,
   subtitle: String,
   time: String,         // e.g. "35 mins"
@@ -78,6 +79,7 @@ Four tabs: **Recipes**, **Weekly Plan**, **Shopping List**, **History**.
 | `recipeOverrides` | `{ [id]: Partial<Recipe> }` | Edits to built-in recipes |
 | `recipeCookCounts` | `{ [id]: Number }` | Times each recipe cooked |
 | `archivedRecipes` | `id[]` | Recipes hidden from main grid |
+| `favouriteRecipes` | `id[]` | Recipes marked as favourite (heart icon) |
 | `savedPlans` | `SavedPlan[]` | Plan History snapshots |
 | `shopGotItems` | `string[]` | Ticked shopping items — keys in `"type:ingKey"` format (e.g. `"fresh:garlic"`). Survives refresh; cleared when the plan changes. |
 | `shopPlanKey` | `string` | JSON fingerprint of the plan that built the current shopping list. Used to detect plan changes across refresh. |
@@ -89,6 +91,19 @@ function ls(key, def)      // read from localStorage (safe JSON parse)
 function lsRaw(key, val)   // write WITHOUT triggering cloud sync (used during merge)
 function lsSave(key, val)  // write AND schedule cloud sync (use for all normal saves)
 ```
+
+### Favourites helpers
+Same pattern as archived:
+```js
+function getFavourites()     // → Set of favourited IDs
+function setFavourites(set)  // lsSave + cloud sync
+function isFavourite(id)     // boolean
+function toggleFavourite(id) // toggle + renderRecipes()
+function toggleFavFilter()   // toggle state.filters.showFavourites + re-render
+```
+`state.filters.showFavourites` (boolean, default `false`) — when true, `applyFilters()` excludes non-favourited recipes. Counted in `updateFilterCount()`, reset by `clearAllFilters()`.
+
+Card HTML: `.fav-btn` is `position: absolute; top: 6px; left: 6px; z-index: 3` — a circular ghost button showing ♡ (inactive, grey) or ♥ (active, red). `.custom-badge` is shifted to `left: 44px` to avoid overlap.
 
 ### Override pattern
 Edits to built-in recipes are stored in `recipeOverrides`, not in `BUILTIN_RECIPES`. `getAllRecipes()` merges at read time:
@@ -189,12 +204,13 @@ Additive — never deletes local data:
 - `recipeOverrides`: local wins on conflicts
 - `recipeCookCounts`: `Math.max` per ID
 - `archivedRecipes`: union
+- `favouriteRecipes`: union
 - `weeklyPlan`: local wins on conflicts
 - `savedPlans`: add cloud-only plan IDs
 
 ### Firestore document (`users/{uid}`)
 ```js
-{ customRecipes, recipeOverrides, recipeCookCounts, archivedRecipes, weeklyPlan, savedPlans, lastSaved }
+{ customRecipes, recipeOverrides, recipeCookCounts, archivedRecipes, favouriteRecipes, weeklyPlan, savedPlans, lastSaved }
 ```
 
 ### Firestore security rules
@@ -217,6 +233,8 @@ service cloud.firestore {
 All green usages use `var(--green)` / `var(--green-dark)` — never hardcoded hex.
 
 Key button classes: `btn-primary` (green filled), `btn-save-plan` (green outline), `btn-history-shop` (green filled, history cards), `btn-cooked` (dark, mark as cooked).
+
+**Header buttons**: `.auth-btn` — white ghost style (rgba white background/border on green header). Used for Sign In, Sign Out, `+ Add Recipe`, and `Help`. On mobile (≤600px) the header wraps: title row first, then button row (`width:100%; justify-content:flex-end`) below.
 
 **Help modal `li` pattern**: `.help-section li` is `display: flex`, so any direct-child element (including `<strong>`) becomes a separate flex item and breaks out of text flow. Always wrap `li` content in a `<span>`: `<li><span>text with <strong>bold</strong></span></li>`.
 
