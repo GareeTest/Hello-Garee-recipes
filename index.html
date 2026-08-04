@@ -389,6 +389,7 @@ footer { text-align: center; padding: 0.75rem; font-size: 0.75rem; color: #76767
   </div>
   <div style="display:flex;gap:0.5rem;flex-shrink:0;align-items:center">
     <div id="auth-area"><button class="auth-btn" onclick="openAuthModal()">☁ Sign In</button></div>
+    <button class="auth-btn" onclick="openAddModal()">+ Add Recipe</button>
     <button class="auth-btn" onclick="openHelpModal()" aria-label="Help" title="Help">Help</button>
   </div>
 </header>
@@ -471,7 +472,6 @@ footer { text-align: center; padding: 0.75rem; font-size: 0.75rem; color: #76767
     <div class="results-bar-right">
       <button class="shop-now-btn" id="shop-now-btn" onclick="goToShoppingList()">🛒 Shopping List</button>
       <button class="shop-now-btn" id="clear-plan-btn" onclick="clearPlan()" style="background:#e53935">✕ Clear Selected</button>
-      <button class="add-recipe-btn" onclick="openAddModal()">+ Add Recipe</button>
     </div>
   </div>
   <div class="recipe-hint">👆 Click any recipe card to add it to your weekly plan</div>
