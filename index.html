@@ -317,7 +317,8 @@ footer { text-align: center; padding: 0.75rem; font-size: 0.75rem; color: #76767
 @media (max-width: 600px) {
   footer { padding: 0.15rem 0.5rem; font-size: 0.65rem; }
   .page { padding: 0.8rem; }
-  header { padding: 0.8rem 1rem; }
+  header { padding: 0.8rem 1rem; flex-wrap: wrap; gap: 0.4rem; }
+  header > div:last-child { width: 100%; justify-content: flex-end; }
   nav { gap: 0.2rem; padding: 0.3rem 0.3rem 0; }
   nav button { font-size: 0.78rem; font-weight: 600; padding: 0.5rem 0.3rem 0.4rem; }
   nav button small { display: none; }
