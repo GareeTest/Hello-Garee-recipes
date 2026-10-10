@@ -34,7 +34,7 @@ Four tabs: **Recipes**, **Weekly Plan**, **Shopping List**, **History**.
 ### Recipe object
 ```js
 {
-  id: Number,           // built-ins: 10–634; custom: Date.now() (large int)
+  id: Number,           // built-ins: 10–637; custom: Date.now() (large int)
   name: String,
   subtitle: String,
   time: String,         // e.g. "35 mins"
